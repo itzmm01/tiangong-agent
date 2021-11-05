@@ -1,0 +1,12 @@
+/.idea
+/target
+/lib
+*.
+/planning/node_modules/
+/planning/build/
+/planning/package-lock.json
+/planning/.idea
+yarn-error.log
+
+*.log
+

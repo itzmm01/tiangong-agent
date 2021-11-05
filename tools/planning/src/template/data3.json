@@ -1,0 +1,591 @@
+{
+  "common": {
+    "typeInfo": "",
+    "typeString": "字符输入",
+    "typeInt": 5,
+    "password": "123456",
+    "type_bool": true,
+    "radio": "选项B",
+    "select": "选项A",
+    "cascade": "选项B",
+    "cascade_demo_ab_1": "AB_1",
+    "cascade_demo_b_1": "B_111",
+    "cascade_switch": false,
+    "switch_false": "开关关闭显示",
+    "disk": [
+      {
+        "key": "disk_1",
+        "name": "数据盘",
+        "path": "/data",
+        "fs_type": "xfs",
+        "tags": [
+          "application/json",
+          "application/xml"
+        ]
+      }
+    ],
+    "longDesc": "超过80个字符的提示会折叠起来，鼠标移动到上面可显示"
+  },
+  "host": [
+    {
+      "hostGroup": "label1,label2",
+      "hostname": "192_168_0_2",
+      "inner-ip": "192.168.0.2",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label3,label4",
+      "hostname": "192_168_0_3",
+      "inner-ip": "192.168.0.3",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_5",
+      "inner-ip": "192.168.0.4",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_9",
+      "inner-ip": "192.168.0.8",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_10",
+      "inner-ip": "192.168.0.9",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_14",
+      "inner-ip": "192.168.0.14",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_15",
+      "inner-ip": "192.168.0.15",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_45",
+      "inner-ip": "192.168.0.45",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_35",
+      "inner-ip": "192.168.0.35",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_16",
+      "inner-ip": "192.168.0.16",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_17",
+      "inner-ip": "192.168.0.17",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_18",
+      "inner-ip": "192.168.0.18",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_19",
+      "inner-ip": "192.168.0.19",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_20",
+      "inner-ip": "192.168.0.20",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_21",
+      "inner-ip": "192.168.0.21",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_22",
+      "inner-ip": "192.168.0.22",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_23",
+      "inner-ip": "192.168.0.23",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_24",
+      "inner-ip": "192.168.0.24",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    },
+    {
+      "hostGroup": "label1,label3",
+      "hostname": "192_168_0_25",
+      "inner-ip": "192.168.0.25",
+      "ssh-port": "22",
+      "user": "root",
+      "passwd": "123456",
+      "disk": [
+        {
+          "key": "disk",
+          "isMount": true,
+          "name": "数据盘",
+          "dev_name": "/dev/vdb",
+          "path": "/data",
+          "fs_type": "xfs",
+          "isUnmount": false
+        }
+      ]
+    }
+  ],
+  "param": {
+    "desc": "",
+    "param2": "参数2",
+    "param3": "分组2参数1",
+    "param4": "分组2参数2",
+    "disk": [
+      {
+        "key": "disk_1",
+        "name": "数据盘",
+        "path": "/data",
+        "fs_type": "xfs"
+      }
+    ],
+    "tdsql.install": true,
+    "tdsql.cpu": 1292,
+    "tdsql.memory": 2048,
+    "tdsql.data_capacity": 3096,
+    "tdsql.log_capacity": 1024,
+    "tdsql.data_path": "/tdsqldata1",
+    "tdsql.log_path": "/tdsqldata1"
+  },
+  "service": [
+    {
+      "name": "MongoDB",
+      "key": "MongoDB",
+      "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+      "select": true,
+      "disabled": true
+    },
+    {
+      "name": "Angel",
+      "key": "Angel",
+      "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+      "select": false,
+      "children": [
+        {
+          "name": "Angel001",
+          "key": "Angel001",
+          "description": "Angel001描述详情",
+          "select": false
+        },
+        {
+          "name": "Angel002",
+          "key": "Angel002",
+          "description": "Angel002描述详情",
+          "select": false
+        }
+      ]
+    },
+    {
+      "name": "Zookeeper",
+      "key": "Zookeeper",
+      "description": "disabled=false,则该服务为可选组件",
+      "select": true,
+      "disabled": false
+    }
+  ],
+  "topology": [
+    {
+      "key": "N1",
+      "inner-ip": "192.168.0.2",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": true,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "key": "N2",
+      "inner-ip": "192.168.0.3",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": false,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "key": "N3",
+      "inner-ip": "192.168.0.4",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": false,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "key": "N7",
+      "inner-ip": "192.168.0.8",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": false,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "key": "N8",
+      "inner-ip": "192.168.0.9",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": false,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "key": "N12",
+      "inner-ip": "192.168.0.14",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": false,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    },
+    {
+      "key": "N13",
+      "inner-ip": "192.168.0.15",
+      "selectArr": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": false,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": false,
+          "children": []
+        }
+      ]
+    }
+  ]
+}

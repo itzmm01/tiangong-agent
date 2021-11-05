@@ -1,0 +1,142 @@
+
+.multiCeil{
+    display: flex;
+    flex-direction: row;
+}
+
+.editableTable{
+    flex: 1;
+    overflow: hidden;
+}
+
+.editableTable .ant-table-wrapper{
+    height: 100%;
+    box-sizing: border-box;
+    padding-bottom: 10px;
+}
+.editableTable .ant-spin-nested-loading ,.editableTable .ant-spin-container,.editableTable .ant-table{
+    height: 100%;
+    box-sizing: border-box;
+}
+.editableTable .ant-table-container{
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+}
+.editableTable .ant-table-container .ant-table-body{
+    flex: 1;
+}
+
+.editableTable .ant-table-body{
+    min-height: 250px;
+}
+.headerCellGroupContainer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.headerCellTitle {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.headerCellGroup {
+    display: flex;
+    flex-direction: row;
+    border-top: solid 1px #ededed;
+    padding-top: 8px;
+    box-sizing: border-box;
+}
+
+.headerCellGroup .childCell {
+    flex: 1;
+    margin-right: 5px;
+    text-align: center;
+}
+.headerCellGroup .childCell.op-btn{
+    width: 48px;
+    flex: none;
+}
+.headerCellGroup .childCell.switch{
+    width: 48px;
+    flex: none;
+}
+
+.headerCellGroupContainer .editIcon {
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+.edit-header {
+    display: flex;
+    flex-direction: row;
+    box-sizing: border-box;
+    padding-left: 42px;
+    padding-right: 48px;
+    padding-bottom: 10px;
+}
+
+.edit-header span {
+    flex: 1;
+}
+
+.batch-edit-form-item{
+
+}
+.batch-edit-form-item .ant-form-item-explain{
+    margin-left: 0;
+}
+
+.flex-form-item{
+    display: flex;
+    flex-direction: row;
+}
+.editable-row{
+    box-sizing: border-box;
+    position: relative;
+}
+
+.editable-row .ant-form-item{
+    margin-bottom: 5px;
+    max-width: 100%;
+}
+
+.editable-row .auto-type-form-item .input-item-flex{
+    flex: 1;
+    min-width: 80px;
+    width: 100%;
+}
+.editable-row .auto-type-form-item .input-item-flex.switch{
+    flex: none;
+    width: 50px;
+    min-width: 50px;
+}
+.editable-row .auto-type-form-item .input-item.enum{
+   width: 100%;
+}
+
+.editable-row .ant-select{
+   flex: 1;
+}
+.editable-row .description{
+    color: #999;
+    margin-left: 5px;
+    min-width: 0;
+}
+.editable-row .ant-form-item-explain{
+    margin-left: 0;
+}
+
+.editable-row .ant-form-item-label{
+    display: none;
+}
+
+.editable-row .ant-table-cell .objectInput{
+    flex: 1;
+    width: 100%!important;
+    box-sizing: border-box;
+}
+

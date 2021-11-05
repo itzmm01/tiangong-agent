@@ -1,0 +1,16 @@
+- job:
+    name: "check loss between pods by ksniff"
+    host: local
+    tasks:
+      - name: 'run in UDP mode'
+        type: command
+        cmd: ${SETUP_TOOLS_DIR}/tools/network/sniff/check-k8s-pod-loss.sh --client-ns ${CLIENT_NS} --client-pod ${CLIENT_POD} --server-ns ${SERVER_NS} --server-pod ${SERVER_POD} --port ${PORT} --pkg-byte-len ${PKG_BYTE_LEN} --pkg-count ${PKG_COUNT} --protocol udp --mode pod
+        allow_failed: true
+      - name: 'run in TCP mode'
+          type: command
+          cmd: ${SETUP_TOOLS_DIR}/tools/network/sniff/check-k8s-pod-loss.sh --client-ns ${CLIENT_NS} --client-pod ${CLIENT_POD} --server-ns ${SERVER_NS} --server-pod ${SERVER_POD} --port ${PORT} --pkg-byte-len ${PKG_BYTE_LEN} --pkg-count ${PKG_COUNT} --protocol tcp --mode pod
+          allow_failed: true
+      - name: 'run in UDP mode, for multiple pods.'
+          type: command
+          cmd: ${SETUP_TOOLS_DIR}/tools/network/sniff/check-k8s-pod-loss.sh --client-ns ${CLIENT_NS} --client-pod ${CLIENT_POD} --server-ns ${MULTI_SERVER_NS} --server-pod ${MULTI_SERVER_POD} --port ${PORT} --pkg-byte-len ${PKG_BYTE_LEN} --pkg-count ${PKG_COUNT} --protocol udp --mode pod
+          allow_failed: true

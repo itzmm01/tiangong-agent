@@ -1,0 +1,8 @@
+pydantic~=1.8.2
+paramiko==2.7.2
+uvicorn==0.15.0
+
+PyYAML~=5.4.1
+fastapi~=0.70.0
+crypto~=1.4.1
+loguru~=0.5.3

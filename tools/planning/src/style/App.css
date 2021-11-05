@@ -1,0 +1,333 @@
+@import '~antd/dist/antd.css';
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+
+.page-container {
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.page-container .ant-layout {
+    overflow: hidden;
+    height: 100%;
+}
+
+.page-container .ant-layout .ant-layout-content{
+    flex: 1!important;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+.ant-layout-content {
+    min-height: auto;
+    background: #fff;
+    padding: 5px 24px 10px;
+}
+
+.page-container .ant-layout-content .planning-container{
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+.planning-container .planning-content{
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.planning-container .ant-table-body{
+    overflow-y: auto!important;
+    position: relative;
+}
+
+.importButton {
+    align-items: center;
+    padding: 15px 0;
+    text-align: right;
+    background: #fff;
+}
+
+.hidden {
+    opacity: 0.1;
+    width: 200px;
+}
+
+.upload {
+    text-align: center;
+}
+
+.file {
+    position: relative;
+    display: inline-block;
+    background: #d0eeff;
+    border: 1px solid #1890ff;
+    border-radius: 4px;
+    margin-top: 100px;
+    padding: 4px 12px;
+    overflow: hidden;
+    color: #1e88c7;
+    text-decoration: none;
+    text-indent: 0;
+    line-height: 40px;
+    cursor: pointer;
+}
+
+.file input {
+    position: absolute;
+    font-size: 100px;
+    right: 0;
+    top: 0;
+    opacity: 0;
+}
+
+.file:hover {
+    cursor: pointer;
+    background: #aadffd;
+    border-color: #78c3f3;
+    color: #004974;
+    text-decoration: none;
+}
+
+
+
+.ant-upload-list {
+    display: none;
+}
+
+.formLabel {
+    margin-right: 20px;
+    min-width: 120px;
+    text-align: right;
+    display: inline-block;
+}
+
+.formLabel i {
+    font-style: normal;
+    color: red;
+    margin: 0 3px;
+}
+
+.ant-form-item-has-error .ant-form-item-explain {
+    margin-left: 140px;
+}
+
+.default-divider.ant-divider-with-text-left::before{
+    width: 15%;
+}
+
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.App-container{
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.logo {
+  width: 78px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 23px 24px 16px -30px;
+  float: left;
+  background: url(../img/logo-bg-color.svg) left no-repeat;
+  background-size: 78px 18px;
+}
+.ant-layout {
+  height: 100%;
+}
+
+.ant-layout-header {
+  color: white;
+  font-size: 15px;
+  position: relative;
+  display: flex;
+}
+
+.ant-layout-footer {
+  /* position: fixed; */
+  bottom: 0;
+  width: 100%;
+}
+
+.ant-table-tbody > tr >.ant-table-cell{
+  padding: 5px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.ant-table-thead > tr >.ant-table-cell{
+    padding: 5px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.mg-top__20 {
+  margin-top: 20px;
+}
+
+.steps-content {
+  display: none;
+}
+
+.steps-action {
+  position: relative;
+  top: -181px;
+  display: inline;
+  left: 20px;
+}
+
+.descripInfo {
+  color: #999;
+  margin-left: 10px;
+}
+
+#serverTable {
+  margin-top: 25px;
+}
+/*表单输入的样式*/
+.auto-type-form-item{
+    box-sizing: border-box;
+}
+
+.auto-type-form-item .ant-form-item-control-input-content{
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    justify-content: flex-start;
+}
+.auto-type-form-item .input-item{
+    width: auto;
+    max-width: 100%;
+}
+
+.auto-type-form-item .ant-select{
+    max-width: 100%;
+}
+.auto-type-form-item .description{
+    color: #999;
+    margin-left: 10px;
+    min-width: 100px;
+    line-height: 32px;
+}
+.auto-type-form-item .ant-form-item-explain{
+    margin-left: 0;
+}
+.auto-type-form-item .ant-form-item-label{
+    white-space: pre-wrap;
+}
+.auto-type-form-item .ant-form-item-label > label{
+    height: auto;
+    line-height: 32px;
+}
+.auto-type-form-item .ant-form-item-label >label::after{
+    content: '';
+}
+
+.page-description{
+}
+.page-description .ant-alert-message{
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 22px;
+    line-height: 22px;
+    white-space: nowrap;
+}
+.page-description .ant-alert-message span{
+    height: 22px;
+    line-height: 22px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+
+.full-table{
+    flex: 1;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding-top: 20px;
+}
+
+.full-table .ant-table-wrapper{
+    height: 100%;
+    box-sizing: border-box;
+    padding-bottom: 10px;
+}
+.full-table .ant-spin-nested-loading ,.full-table .ant-spin-container,.full-table .ant-table{
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.full-table .ant-table-container{
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+}
+.full-table .ant-table-container .ant-table-body{
+    flex: 1;
+}

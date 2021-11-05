@@ -1,0 +1,590 @@
+[
+  {
+    "page": "globalConfig",
+    "description": "全局配置",
+    "config": {
+      "pageTitle": "配置规划工具",
+      "exportFileName": "conf",
+      "validateFunPrefix": "validate_",
+      "saveFun": ["saveConfig","saveConfig2"]
+    }
+  },
+  {
+    "page": "common",
+    "config": [
+      {
+        "name": "说明类型:",
+        "key": "typeInfo",
+        "type": "info",
+        "value": "",
+        "description": "type=info,仅仅做提示，说明，用户不能输入 "
+      },
+      {
+        "name": "不可编辑:",
+        "key": "disabled_item",
+        "type": "string",
+        "value": "值不可编辑",
+        "description": "disabled:true,仅仅做提示，说明，用户不能输入 ",
+        "disabled": true
+      },
+      {
+        "name": "字符输入:",
+        "key": "typeString",
+        "type": "string",
+        "description": "type=string:字符输入",
+        "required": true,
+        "display": false,
+        "value": "我是默认值：字符输入",
+        "ruleType": "reg",
+        "pattern": "^(字符)"
+      },
+      {
+        "name": "数字类型:",
+        "key": "typeInt",
+        "type": "int",
+        "description": "type=int:输入数字类型，min设置最小值，max设置最大值,value设置默认值",
+        "required": false,
+        "display": true,
+        "min-value": 1,
+        "max-value": 10,
+        "value": 5
+      },
+      {
+        "name": "密码输入:",
+        "key": "password",
+        "type": "password",
+        "value": "123456",
+        "description": "type=password:密码输入,可切换显示和隐藏；主机配置的密码输入为表头一键显示或者隐藏",
+        "required": true,
+        "display": true
+      },
+      {
+        "name": "开关切换:",
+        "type": "switch",
+        "key": "type_bool",
+        "value": true,
+        "description": "type=switch：开关，值为true或者false"
+      },
+      {
+        "name": "单选框:",
+        "key": "radio",
+        "type": "enum",
+        "option": [
+          "选项A",
+          "选项B",
+          "选项C"
+        ],
+        "value": "选项B",
+        "description": "type=enum:单选框",
+        "display": true,
+        "required": true
+      },
+      {
+        "name": "多选框:",
+        "key": "select",
+        "type": "enum",
+        "multiple": true,
+        "option": [
+          "选项A",
+          "选项B",
+          "选项C"
+        ],
+        "value": "选项B",
+        "description": "type=enum:单选框，增加配置 \"multiple\": true,设置为多选",
+        "display": true,
+        "required": true
+      },
+      {
+        "name": "枚举表单联动:",
+        "key": "cascade",
+        "type": "enum",
+        "option": [
+          "选项A",
+          "选项B",
+          "选项C"
+        ],
+        "value": "选项B",
+        "description": "根据该选项的内容，渲染不同的输入框,字段：cascade内为联动的表格内容，为key->value类型，当该表单的值为cascade的key值时，则渲染出对应配置的表单",
+        "display": true,
+        "required": true,
+        "cascade": {
+          "选项A&选项B": [
+            {
+              "name": "选项AB联动1:",
+              "key": "cascade_demo_ab_1",
+              "type": "string",
+              "value": "AB_1",
+              "description": "选择表单联动选项A或者B则显示",
+              "required": true,
+              "display": true
+            }
+          ],
+          "选项B": [
+            {
+              "name": "选项B联动输入框:",
+              "key": "cascade_demo_b_1",
+              "type": "string",
+              "value": "B_1",
+              "description": "选择表单联动选项B则显示",
+              "required": true,
+              "display": true
+            }
+          ],
+          "选项C": [
+            {
+              "name": "选项C联动输入框:",
+              "key": "cascade_demo_c_1",
+              "type": "string",
+              "value": "C_1",
+              "description": "选择表单联动选项C则显示",
+              "required": true,
+              "display": true
+            }
+          ]
+        }
+      },
+      {
+        "name": "开关表单联动:",
+        "key": "cascade_switch",
+        "type": "switch",
+        "value": true,
+        "description": "switch表单联动",
+        "display": true,
+        "required": true,
+        "cascade": {
+          "true": [
+            {
+              "name": "开关打开显示:",
+              "key": "switch_true",
+              "type": "string",
+              "value": "开关打开显示",
+              "description": "选择true显示",
+              "required": true,
+              "display": true
+            }
+          ],
+          "false": [
+            {
+              "name": "开关关闭显示:",
+              "key": "switch_false",
+              "type": "string",
+              "value": "开关关闭显示",
+              "description": "选择false显示",
+              "required": true,
+              "display": true
+            }
+          ]
+        }
+      },
+      {
+        "name": "复杂数组输入:",
+        "key": "disk",
+        "type": "array",
+        "width": 750,
+        "required": true,
+        "description": "type=array:复杂的数组输入",
+        "items": [
+          {
+            "title": "名称",
+            "dataIndex": "name",
+            "type": "string",
+            "key": "name",
+            "placeholder": "磁盘名称",
+            "value": "数据盘",
+            "width": 100
+          },
+          {
+            "title": "可输入数组",
+            "key": "tags",
+            "type": "enum",
+            "mode": "tags",
+            "option": ["application/json"]
+          },
+          {
+            "title": "挂载路径",
+            "dataIndex": "path",
+            "type": "string",
+            "key": "path",
+            "ruleType": "columnUnique",
+            "placeholder": "磁盘挂载路径",
+            "value": "/data",
+            "width": 150
+          },
+          {
+            "title": "系统格式",
+            "type": "enum",
+            "key": "fs_type",
+            "width": 120,
+            "placeholder": "磁盘格式化类型",
+            "value": "xfs",
+            "option": [
+              "xfs",
+              "ext4"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "提示超过80个字符提示:",
+        "key": "longDesc",
+        "type": "string",
+        "value": "超过80个字符的提示会折叠起来，鼠标移动到上面可显示",
+        "description": "超过80个字符<br>从小到大填写剩余例预留虚拟IP地址，并用逗号分隔，如IP连续可按此格式填写172.16.0.10~172.16.0.29,从小到大填写剩余例预留虚拟IP地水电费打发点阿打发",
+        "required": true,
+        "display": true
+      }
+    ]
+  },
+  {
+    "page": "host",
+    "config": {
+      "basicConfig": [
+        {
+          "title": "主机分组",
+          "description": "设置标签isHostLabel，标识主机分组，导出的host.yml将以此值作为分类输出",
+          "key": "hostGroup",
+          "type": "enum",
+          "width": 220,
+          "option": [
+            "label1",
+            "label2",
+            "label3",
+            "label4"
+          ],
+          "multiple": true
+        },
+        {
+          "title": "主机名",
+          "key": "hostname",
+          "type": "string",
+          "ruleType": "reg,columnUnique",
+          "width": 130,
+          "pattern": "^[0-9,_]+$"
+        },
+        {
+          "title": "内网ip",
+          "key": "inner-ip",
+          "type": "string",
+          "ruleType": "ip,columnUnique",
+          "width": 130,
+          "description": "服务器的内网IP，key值固定为inner-ip或者ip"
+        },
+        {
+          "title": "SSH端口",
+          "key": "ssh-port",
+          "type": "string",
+          "width": 100,
+          "required": true,
+          "ruleType": "columnEqually",
+          "description": "连接服务器ssh端口，key值固定为：ssh-port或者port"
+        },
+        {
+          "title": "账号",
+          "key": "user",
+          "type": "string",
+          "width": 100,
+          "ruleType": "columnEqually",
+          "description": "连接服务器ssh用户名，key值固定为：user"
+        },
+        {
+          "title": "密码",
+          "key": "passwd",
+          "type": "password",
+          "ruleType": "columnEqually",
+          "width": 120,
+          "description": "连接服务器ssh用户密码，key值固定为：passwd或者password"
+        },
+        {
+          "title": "磁盘",
+          "key": "disk",
+          "type": "array",
+          "width": 750,
+          "required": true,
+          "description": "服务器的磁盘信息，一对多的关系",
+          "items": [
+            {
+              "title": "名称",
+              "key": "name",
+              "type": "string"
+            },
+            {
+              "title": "磁盘路径",
+              "key": "dev_name",
+              "type": "string",
+              "ruleType": "columnUnique"
+            },
+            {
+              "title": "挂载路径",
+              "key": "path",
+              "type": "string",
+              "ruleType": "columnUnique"
+            },
+            {
+              "title": "系统格式",
+              "key": "fs_type",
+              "type": "enum",
+              "option": [
+                "xfs",
+                "ext4"
+              ]
+            },
+            {
+              "title": "挂载参数",
+              "key": "mount_option",
+              "type": "string",
+              "required": false
+            },
+            {
+              "title": "容量(GB)",
+              "key": "capacity",
+              "type": "int",
+              "required": false,
+              "min-value": 1
+            },
+            {
+              "title": "重置",
+              "key": "isUnmount",
+              "type": "switch",
+              "value": false
+            },
+            {
+              "title": "挂载",
+              "type": "switch",
+              "key": "isMount",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "customConfig": []
+    }
+  },
+  {
+    "page": "param",
+    "config": [
+      {
+        "param-group": "参数配置分组1",
+        "param-items": [
+          {
+            "name": "说明类型",
+            "key": "desc",
+            "type": "info",
+            "value": "",
+            "description": "该界面支持的输入类型与基础配置一致，不同之处在于，该界面展示根据配置进行分组，但导出的数据结构不进行分组导出；本界面的所有key值同样不能重复。 "
+          },
+          {
+            "name": "参数2",
+            "key": "param2",
+            "type": "string",
+            "value": "参数2",
+            "description": "分组1的第二个参数",
+            "required": true,
+            "display": true,
+            "min-value": "",
+            "max-value": "",
+            "is-optional": ""
+          }
+        ]
+      },
+      {
+        "param-group": "参数配置分组2",
+        "param-items": [
+          {
+            "name": "参数1",
+            "key": "param3",
+            "type": "string",
+            "value": "分组2参数1",
+            "description": "跟基础配置一样，该页面key值不能重复",
+            "required": true,
+            "display": true,
+            "min-value": "",
+            "max-value": "",
+            "is-optional": ""
+          },
+          {
+            "name": "参数2:",
+            "key": "param4",
+            "type": "string",
+            "description": "字符输入",
+            "required": false,
+            "display": true,
+            "value": "分组2参数2"
+          },
+          {
+            "name": "复杂数组输入:",
+            "key": "disk",
+            "type": "array",
+            "width": 750,
+            "required": true,
+            "description": "type=array:复杂的数组输入",
+            "items": [
+              {
+                "title": "名称",
+                "dataIndex": "name",
+                "type": "string",
+                "key": "name",
+                "placeholder": "磁盘名称",
+                "value": "数据盘",
+                "width": 100
+              },
+              {
+                "title": "挂载路径",
+                "dataIndex": "path",
+                "type": "string",
+                "key": "path",
+                "ruleType": "columnUnique",
+                "placeholder": "磁盘挂载路径",
+                "value": "/data"
+              },
+              {
+                "title": "系统格式",
+                "type": "enum",
+                "key": "fs_type",
+                "placeholder": "磁盘格式化类型",
+                "value": "xfs",
+                "option": [
+                  "xfs",
+                  "ext4"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "param-group": "TDSQL 配置",
+        "param-items": [
+          {
+            "name": "是否安装 TDSQL",
+            "key": "tdsql.install",
+            "type": "switch",
+            "value": true,
+            "description": "默认需要安装",
+            "required": true,
+            "display": true,
+            "cascade": {
+              "true": [
+                {
+                  "name": "CPU：",
+                  "key": "tdsql.cpu",
+                  "type": "int",
+                  "description": "(核），支持超卖",
+                  "required": true,
+                  "display": true,
+                  "min-value": 12
+                },
+                {
+                  "name": "内存大小：",
+                  "key": "tdsql.memory",
+                  "type": "int",
+                  "description": "(GB)，支持超卖",
+                  "required": true,
+                  "display": true,
+                  "min-value": 24
+                },
+                {
+                  "name": "数据盘大小：",
+                  "key": "tdsql.data_capacity",
+                  "type": "int",
+                  "description": "(GB)，支持超卖",
+                  "required": true,
+                  "display": true,
+                  "min-value": 300
+                },
+                {
+                  "name": "日志盘大小：",
+                  "key": "tdsql.log_capacity",
+                  "type": "int",
+                  "description": "(GB)，支持超卖",
+                  "required": true,
+                  "display": true,
+                  "min-value": 300
+                },
+                {
+                  "name": "数据盘挂载路径：",
+                  "key": "tdsql.data_path",
+                  "type": "string",
+                  "description": "高级设置，默认不用改，需和规划对齐",
+                  "value": "/tdsqldata1",
+                  "required": true,
+                  "display": true
+                },
+                {
+                  "name": "日志盘挂载路径：",
+                  "key": "tdsql.log_path",
+                  "type": "string",
+                  "value": "/tdsqldata1",
+                  "description": "高级设置，默认不用改，需和规划对齐",
+                  "required": true,
+                  "display": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "page": "service",
+    "config": {
+      "basicConfig": [
+        {
+          "title": "服务名称",
+          "key": "name"
+        },
+        {
+          "title": "服务简要说明",
+          "key": "description"
+        }
+      ],
+      "customConfig": [
+        {
+          "name": "MongoDB",
+          "key": "MongoDB",
+          "description": "select=true，则为默认选择；disabled=true,表示该服务不能编辑，select为true则必须安装",
+          "select": true,
+          "disabled": true
+        },
+        {
+          "name": "Angel",
+          "key": "Angel",
+          "description": "允许包含children来拆分服务部署单元，但是本界面不展示，在服务拓扑界面，会作为最小部署单展示",
+          "select": true,
+          "children": [
+            {
+              "name": "Angel001",
+              "key": "Angel001",
+              "description": "Angel001描述详情",
+              "select": false
+            },
+            {
+              "name": "Angel002",
+              "key": "Angel002",
+              "description": "Angel002描述详情",
+              "select": false
+            }
+          ]
+        },
+        {
+          "name": "RabbitMQ",
+          "key": "RabbitMQ",
+          "description": "disabled=false,则该服务为可选组件",
+          "select": false,
+          "disabled": false
+        }
+      ],
+      "param": {
+        "allow-append": true
+      }
+    }
+  },
+  {
+    "page": "topology",
+    "description": "部署拓扑，用于确认服务于主机的部署关系指定部署拓扑首列的值，该值从主机配置取得，指定key为主机配置的某一列，该列值需唯一，用于指定主机和部署服务之间的拓扑关系",
+    "config": {}
+  },
+  {
+    "page": "summary"
+  }
+]

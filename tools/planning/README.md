@@ -1,0 +1,252 @@
+# web 部署工具 1.3
+
+1.3版本迭代开发分支
+
+## 1. 使用指南
+
+
+目录作为参考，具体以实际为准
+
+```python
+├── REAMDE.md # 帮助文档
+├── index.html # 页面首页
+├── develop  # 本地自定义开发文件夹
+│   ├── data # 自定义数据模板  下面的文件都是自己可以添加删除修改的
+|   |    ├── config.json  # 配置数据文件
+│   │    ├── data1.json  # 比如：腾讯会议默认数据模板
+│   │    └── data2.json  # 比如：里约配置默认数据模板
+|   |
+│   ├── model.js  # 自定义导出配置信息开发
+│   ├── auto_save.js  # 自定义导出配置信息开发
+│   └── template.json  #  页面模板json文件
+```
+
+### 1.1. 可用模板列表选择
+
+可以选择本地 `develop / template` 文件夹中的模板数据进行读取渲染到页面
+
+### 1.2. 导入模板
+
+可以选择本地 json 数据模板进入导入到页面
+
+### 1.3. 导出模板
+
+可以将当前选择勾选的配置信息进行数据模板导出到本地保存
+
+### 1.4. 导入模板配置指引
+
+#### 1.4.1. 本地模板文件
+
+所有的数据模板都放在 public/develop/data 文件夹下面的
+
+#### 1.4.2. 具体 json 模板参数配置
+
+**setting 配置**
+
+```python
+{
+  "page": "setting",
+  "config": {
+  "pageTitle": "腾讯云私有化配置规划工具"  # 页面标题自定义
+  }
+}
+```
+
+**common 配置**
+
+```python
+  {
+    "page": "common",
+    "config": [
+      {
+        "name": "部署方案",        # 表单控件 label 值，字段(标题)
+        "key": "plan",            # 表单字段 key 值
+        "type": "string",         # 表单控件类型，如 ：string 文本框，boolean 按钮开关 ，enum 下拉框，int 数字文本框， text 纯文本信息
+        "value": "混合部署",            # 表单控件默认值
+        "option": ["公有云", "私有云"], # 选择下拉框值
+        "description": "部署方案",      # 描述详情
+        "required": false,             # 是否必填
+        "display": true,               # 是否隐藏或显示
+      }
+  }
+```
+
+**host 配置**
+
+```python
+  {
+    "page": "host",
+    "config": {
+      "basicConfig": [
+        {
+          "title": "内网ip",  # 表格标题
+          "dataIndex": "inner-ip", # 字段key值
+          "type": "string", # 表单控件类型，如 ：string 文本框，boolean 按钮开关 ，enum 下拉框，int 数字文本框
+          "ruleType": "ip" # 验证表达式ip表示只能输入ip
+        }
+      ]
+    }
+  }
+```
+
+**param 配置**
+
+具体配置参考 `common 配置`
+
+```python
+  {
+    "page": "param",
+    "config": [
+      {
+        "param-group": "mongo",  # 分类标题
+        "param-items": [
+          {
+            "name": "用户名",
+            "key": "mongo_username",
+            "type": "string",
+            "value": "rio",
+            "description": "MongoDB的用户名",
+            "min-value": "",
+            "max-value": "",
+            "is-optional": "",
+            "required": true,
+            "display": true
+          }
+        ]
+      }
+    ]
+  }
+```
+
+**service 配置**
+
+```python
+ {
+    "page": "service",
+    "config": {
+      "basicConfig": [
+        {
+          "title": "服务名称",             # 表格header标题名字
+          "dataIndex": "name"             # 字段key值
+        },
+        {
+          "title": "服务简要说明",
+          "dataIndex": "description"
+        }
+      ],
+      "customConfig": [
+        {
+          "name": "Angel",                # 服务名字
+          "description": "Angel描述详情",  # 描述
+          "select": true,                 # 是否默认选中
+          "disabled": true,               # 是否禁止修改
+          "children": [                   # 二级服务
+            {
+              "name": "Angel001",         # 二级服务名字
+              "description": "Angel001描述详情", # 描述
+              "select": true   # 默认是否勾选，如果一级默认为勾选，请把二级所有的select都设置为勾选，需要跟一级同步
+            },
+            {
+              "name": "Angel002",
+              "description": "Angel002描述详情",
+              "select": true
+            }
+          ]
+        }
+      ]
+    }
+ }
+```
+
+### 1.5. 导出配置文件格式自定义
+
+### 1.5.1. rio_save.js
+
+如果您了解 js，可以自己编写 js 代码进行自定应模板数据格式导出
+
+### 1.5.2. model.js
+
+如果您不熟悉 js，也可以通过把需要生成的模板配置信息放入到 auto_save.js 里面
+
+示例如下：
+
+```python
+window.fileList = {
+  "file1": "{\n" +
+  "         \"deploy\": {\n" +
+  "            \"iplist\": {\n" +
+  "                \"global_master\": __redis_master_ip__,\n" +
+  "                \"global_node\":  __Gaia_IP_0__\n" +
+  "            }\n" +
+  "       }\n" +
+  "}\n"
+```
+
+a. `file1` 导出配置文件的名字
+
+b. **redis_master_ip**
+
+表示此字符将被替换成模板中的字段 `redis_master_ip` 的数据
+
+c. **Gaia_IP_0**
+
+此字符串将被替换成 勾选的服务名字为 `Gaia` 的所有 IP 中第一个 ip 地址
+IP_0 所有 ip 中勾选了这个服务的第一个 ip 地址
+IP_1 表示第二个 ip 地址
+
+
+## 开发指南
+
+项目基于 create-react-app 脚手架生成
+
+### 目录结构
+
+目录作为参考，具体以实际为准
+
+```python
+├── public                 # 公共资源
+└── src
+    ├── img                # 图片资源
+    ├── index.js           # 启动的文件（开始执行的入口）！！！！
+    ├── App.js             # 根组件
+    ├── style              # 样式文件夹
+    ├── utils              # 工具类
+    ├── page               # 页面管理
+    │   ├── common.js      # 基础配置页面
+    │   ├── host.js        # 主机配置页面
+    │   ├── param.js       # 参数配置页面
+    │   ├── service.js     # 服务配置页面
+    │   └── topology.js    # 部署拓扑页面
+```
+
+### 开发准备
+
+代码下载后，请先 `yarn install` 安装依赖
+
+开发预览 `yarn run start`
+
+打包发布 `yarn run build`
+
+### 提交规范
+
+- 提交前 请先 pull
+- commit 请备注好 修改内容 如：'fix 基础配置页 config 中新增 type 为 text 的文本类型显示'
+
+### 编码规范
+
+- 公共方法都写到 utils 文件夹下
+- 代码需要有注释说明
+
+
+### 数据验证
+
+
+
+- 针对全局的数据验证(如表格的数据为list),内置部分常用的方法，比如唯一，一致，在配置项增加数据验证的字段，如:checkRule
+- 针对当单的数据验证，目前默认参数是required，默认不为空，可以为空需要明确配置required=false,通过ruleType内置部分校验规则，比如ip 
+- 在window上挂载一个全局对象,如validator,属性以checkRule定义的字段为方法，作为一个整体的数据校验自动以方法，
+传参为该列的所有数据、该列的配置项，抛出异常，则为校验不通过，异常提醒为Error内的提示（内置方法也按照此处理）
+
+
+
+
