@@ -31,7 +31,7 @@ RUN echo -e "http://mirrors.aliyun.com/alpine/latest-stable/main/\nhttp://mirror
     apk --no-cache update && \
     apk add --no-cache openssh-client tzdata python3 python3-dev py3-pip git gcc libffi-dev musl-dev make && \ 
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    git clone http://blog.yangxx.net:30000/yangchao/setup-tools-agent.git && \
+    git clone https://git.woa.com/p_chaooyang/tiangong-agent && \
     cd setup-tools-agent && \
     pip3 --no-cache-dir install --index-url  https://mirrors.aliyun.com/pypi/simple --upgrade pip && \
     pip3 --no-cache-dir install --index-url  https://mirrors.aliyun.com/pypi/simple install -r requirements.txt 
