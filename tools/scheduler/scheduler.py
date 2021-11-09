@@ -57,8 +57,6 @@ class Constants(object):
 
     KEYGEN_MODULE = "keygen"
 
-    TASK_NAME_SEND_SETUP_TOOLS_FILE = "send_setup-tools_file"
-    TASK_NAME_UNZIP_SETUP_TOOLS_FILE = "unzip_setup-tools_file"
     TASK_NAME_SEND_COMMAND = "send_command"
     TASK_NAME_SEND_SOURCE_FILE = "send_source_file"
     TASK_NAME_EXECUTE_SCRIPT = "execute_script"
@@ -152,16 +150,13 @@ class CommonUtils(object):
     def get_cur_timestamp():
         return time.strftime("%Y-%m-%d %H:%M:%S")
 
-
     @staticmethod
     def str_to_int(num_str):
         try:
             return int(num_str)
         except ValueError:
-            TASK_LOGGER.warning("convert str to int error, num_str is [%s]" % num_str)
             return None
         except TypeError:
-            TASK_LOGGER.warning("convert str to int error, num_str is [%s]" % num_str)
             return None
 
     @staticmethod
@@ -169,10 +164,8 @@ class CommonUtils(object):
         try:
             return float(num_str)
         except ValueError:
-            TASK_LOGGER.warning("convert str to float error, num_str is [%s]" % num_str)
             return None
         except TypeError:
-            TASK_LOGGER.warning("convert str to float error, num_str is [%s]" % num_str)
             return None
 
     @staticmethod
@@ -275,7 +268,7 @@ class ParamReplaceHandler(object):
         for param in params:
             tmp_param = params[param]
             if tmp_param and isinstance(tmp_param, list):
-                float_list = filter(lambda x: x is not None, map(CommonUtils.str_to_float, tmp_param))
+                float_list = list(filter(lambda x: x is not None, map(CommonUtils.str_to_float, tmp_param)))
                 if float_list:
                     value = str(value).replace("${SUM(" + str(param) + ")}", str(sum(float_list))) \
                         .replace("${MIN(" + str(param) + ")}", str(min(float_list))) \
@@ -321,29 +314,15 @@ class HostParser(object):
         self.all_groups = []
 
     def parse(self):
-        # 1. 解析label和var占位符
         self.find_vars_and_labels()
-        # print("self.labels: %s" % self.labels)
-        # print("self.group_refs: %s" % self.group_refs)
-        # 2. 替换labels为实际的实体数据
         self.replace_labels()
-        # print("self.hosts: %s" % self.hosts)
-        # 3. 根据group信息替换相应的var参数
         self.replace_vars()
-        # 4. 根据group_refs替换group引用数据
         self.replace_group_refs()
-        # 5. 合并group及group-ref中host
+        # merge the information of hosts found in group and group-ref
         self.merge_group_hosts()
-        # print("self.hosts: %s" % self.hosts)
-        # 6. ip段解析
+        # parse ip section into ip list
         self.handle_ip_sections()
-        # print("self.hosts: %s" % self.hosts)
-        # print("self.all_group_hosts: %s" % self.all_group_hosts)
-        # print("self.hosts: %s" % self.hosts)
-        # 7. 针对不同场景，对host信息进行汇总，方便使用
         self.list_all_hosts()
-        # print("self.hosts: %s" % self.hosts)
-        # print("self.all_hosts: %s" % self.all_hosts)
         self.all_groups = self.all_group_hosts.keys()
 
     def get_send_host_info(self, send_host):
@@ -734,7 +713,7 @@ class Executor(object):
                     print_out_lines.append(print_str)
             if register:
                 register_host = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
-                register_key = "%s@%s" % (register_host, register)
+                register_key = "%s@%s" % (register, register_host)
                 TASK_LOGGER.info("register param: " + register_key + " : " + str(print_out_lines[-1]))
                 PARAM_DATA[register_key] = print_out_lines[-1]
                 register_value = CommonUtils.str_to_float(print_out_lines[-1])
@@ -797,7 +776,8 @@ class CmdTask(Task):
 
     def parse_with_items(self, host, cmd, cmd_list, job_items, param_data, replace_info=None, key_list=None):
         global_item_params = param_data.get(self.with_items)
-        host_item_params = param_data.get(self.with_items + "@" + host["ip"])
+        _ip = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
+        host_item_params = param_data.get(self.with_items + "@" + _ip)
         if host_item_params:
             item_params = host_item_params
         elif global_item_params:
@@ -825,7 +805,6 @@ class CmdTask(Task):
                 replace_param_cmd = ParamReplaceHandler.replace_param(cmd, param_item, replace_info_item)
                 if self.item_condition:
                     replace_item_condition = ParamReplaceHandler.replace_param(self.item_condition, param_item)
-                    _ip = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
                     replace_item_condition = replace_item_condition.replace("${IP}", _ip)
                     if eval(replace_item_condition):
                         cmd_list.append(
@@ -856,6 +835,7 @@ class CmdTask(Task):
             else:
                 if host["ip"] in UNREADY_HOSTS:
                     continue
+                # replace params with host ip
                 replace_param_cmd = ParamReplaceHandler.replace_host_param(task_cmd, param_data,
                                                                            host["ip"], replace_info)
                 replace_param_cmd = ParamReplaceHandler.replace_key_words(replace_param_cmd, host, replace_info)
@@ -970,7 +950,6 @@ class FileTask(Task):
                                      % (self.name, str(host_location_name), LogUtils.LOG_INFO_ERR))
                     if print_log:
                         PRINT_LOGGER.info("    %s: %s" % (host_location_name, LogUtils.LOG_INFO_ERR))
-            # return sub_process.returncode
             # pylint: disable=broad-except
             except Exception as err:
                 LOGGER.exception(err)
@@ -1272,13 +1251,13 @@ def send_setup_tools_file(hosts, time_out=120):
     LOGGER.info("send setup tools...")
 
     execute_file(hosts, tmp_zip_file, Constants.TMP_SCRIPT_DIR,
-                 time_out=time_out, task_name=Constants.TASK_NAME_SEND_SETUP_TOOLS_FILE)
+                 time_out=time_out, task_name="send_setup-tools_file")
     # unzip
     # execute script cmd
     LOGGER.info("unzip remote setup tool zip file...")
     cmd = "mkdir -p %s;tar zxPf %s/%s -C %s" % (Constants.SETUP_TOOLS_DIR, Constants.TMP_SCRIPT_DIR,
                                                 setup_tools_zip_file_name, Constants.SETUP_TOOLS_DIR)
-    execute_command(hosts, cmd, time_out=time_out, task_name=Constants.TASK_NAME_UNZIP_SETUP_TOOLS_FILE)
+    execute_command(hosts, cmd, time_out=time_out, task_name="unzip_setup-tools_file")
     # remove local tmp zip package
     os.remove(tmp_zip_file)
     return 0
@@ -1299,16 +1278,12 @@ def execute_file(hosts, src, dest, time_out, out_mode="out", print_log=False, ta
 
 def execute_jobs(send_host_ip_list):
     scheduler_return_code = 0
-    # 1.解析job文件
-    # 2.解析task，处理参数替换等
-    # 3.执行具体的编排逻辑
     job_parser = JobParser(SCHEDULER_ARGS.job_conf)
-    # 初始化recovery信息
     recovery_data, recovery_id = do_init_recovery_info(job_parser.job_abs_path, job_parser.job_file_md5)
     start_exec_job = False
     for job in job_parser.jobs:
         job_name = job.name
-        # 直到遍历到指定的job名，才开始执行，否则都跳过
+        # start from the specified job name
         if SCHEDULER_ARGS.start_job_name and job_name == SCHEDULER_ARGS.start_job_name:
             start_exec_job = True
         if SCHEDULER_ARGS.start_job_name and not start_exec_job:
@@ -1318,7 +1293,7 @@ def execute_jobs(send_host_ip_list):
 
         analyse_hosts, job_host = get_analyse_hosts(job.host, send_host_ip_list)
         PARAM_DATA.update({"ANALYSE_JOB_HOSTS": analyse_hosts})
-        # job级别的condition
+        # condition of job
         if job.condition:
             replace_job_condition = ParamReplaceHandler.replace_param(job.condition, PARAM_DATA)
             TASK_LOGGER.info("replace job condition is: " + str(replace_job_condition))
@@ -1338,8 +1313,8 @@ def execute_jobs(send_host_ip_list):
             LOGGER.info("execute job: " + job_name)
             PRINT_LOGGER.info("job: " + job_name)
             LOGGER.info("job will execute on host: " + str(HostInfoHandler.get_host_ips(analyse_hosts)))
-            # 跳过符合条件的job
             job_md5 = CommonUtils.get_md5_value(str(job))
+            # skip the jobs already marked as success
             if do_recovery(job_md5, job_name, job_parser, recovery_data, recovery_id):
                 continue
             allow_failed_num, job_return_code, summary_log = execute_job(analyse_hosts, job, job_name)
@@ -1458,7 +1433,6 @@ def generate_job_items(job_items, job_with_items):
 
 
 def do_schedule():
-    # 确定send_host对应的ip列表
     send_host_ip_list = []
     analyse_host = ALL_HOST
     if SCHEDULER_ARGS.host_conf:
@@ -1497,21 +1471,15 @@ def do_schedule():
 
 def save_recovery_info(job_md5, job_return_code, recovery_data, recovery_id):
     if SCHEDULER_ARGS.recovery:
-        if job_return_code == 0:
-            job_return_status = True
-        else:
-            job_return_status = False
+        job_return_status = True if job_return_code == 0 else False
         recovery_data[recovery_id][job_md5] = job_return_status
         recovery_data[recovery_id]["timestamp"] = Constants.STR_TIME_STAMP
 
 
 def do_recovery(job_md5, job_name, job_parser, recovery_data, recovery_id):
     if SCHEDULER_ARGS.recovery:
-        # print("SCHEDULER_ARGS.recovery: %s" % job_md5)
         if recovery_data.get(recovery_id):
-            # print("recovery_data.get(recovery_id): %s" % recovery_data.get(recovery_id))
             if recovery_data.get(recovery_id).get("job_file_md5") == job_parser.job_file_md5:
-                # print("recovery_data.get(recovery_id).get(job_md5): %s" % recovery_data.get(recovery_id).get(job_md5))
                 if recovery_data.get(recovery_id).get(job_md5):
                     LOGGER.info(job_name + " job break because execute status is true.")
                     PRINT_LOGGER.info("    %s skip job because job execute status is ok"
@@ -1646,9 +1614,7 @@ LOGGER = logging.getLogger('root')
 if __name__ == '__main__':
     # parse arguments
     SCHEDULER_ARGS = parse_args()
-    # print(SCHEDULER_ARGS)
     # init console log
-
     LogUtils.setup_console_logger(PRINT_LOGGER)
 
     PARAM_DATA.update({"LOCAL_IP": CommonUtils.get_local_ip()})
@@ -1685,7 +1651,7 @@ if __name__ == '__main__':
     do_query_host()
     # modify sshd port
     do_modify_sshd_port()
-
+    # check host ready and record the UNREADY_HOSTS
     if check_host_ready(ALL_HOST) != 0 and not SCHEDULER_ARGS.ignore_check_ready_failed:
         sys.exit(1)
     if UNREADY_HOSTS:
