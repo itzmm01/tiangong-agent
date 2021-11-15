@@ -1,5 +1,4 @@
 pydantic~=1.8.2
-paramiko==2.7.2
 uvicorn==0.15.0
 
 PyYAML~=5.4.1
