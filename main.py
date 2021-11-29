@@ -205,6 +205,9 @@ def run_job(status, jobs, job_status):
             elif job_status[task_name] == 1:
                 logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
             else:
+                if "task_own_log_file" not in task:
+                    task["task_own_log_file"] = task_name
+
                 res, log_file = scheduler.execute_task(hosts, task, jobs.get('params'))
                 logger.info(str(res), log_file)
                 if res != 0:
@@ -252,4 +255,4 @@ def history():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=80)
+    uvicorn.run("main:app", host="0.0.0.0", port=61234)
