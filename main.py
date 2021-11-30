@@ -13,6 +13,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from tools.scheduler import scheduler
+import time
 
 
 class InterceptHandler(logging.Handler):
@@ -200,6 +201,8 @@ def run_job(status, jobs, job_status):
 
         for task in job['job'].get('tasks'):
             task_name = job['job'].get('name') + "-" + task.get('name')
+            start_time = time.time()
+
             if job_status[task_name] == 200:
                 logger.info("job {}: {} is Run complete...".format(jobs.get("name"), task_name))
             elif job_status[task_name] == 1:
@@ -207,6 +210,10 @@ def run_job(status, jobs, job_status):
             else:
                 if "task_own_log_file" not in task:
                     task["task_own_log_file"] = task_name
+                if "time_out" not in task:
+                    task["time_out"] = 36000
+                if "print_result" not in task:
+                    task["print_result"] = True
 
                 res, log_file = scheduler.execute_task(hosts, task, jobs.get('params'))
                 logger.info(str(res), log_file)
@@ -217,6 +224,8 @@ def run_job(status, jobs, job_status):
                 else:
                     logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
                     status.set_status(jobs.get("name"), task_name, 200)
+            end_time = time.time()
+            logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"),task_name, end_time - start_time))
 
 
 @app.post("/submit_jobs/")
