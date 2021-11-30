@@ -240,11 +240,13 @@ def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
 @app.post("/get_job_status/")
 def get_job_status(job: JobsName):
     status = Status()
+    code = 200
     if status.get_job(job.name):
         res = status.get_job(job.name)
     else:
         res = "not found job: {}".format(job.name)
-    return {"code": 200, "message": "success", "name": job.name, "data": res}
+        code = 404
+    return {"code": code, "message": "success", "name": job.name, "data": res}
 
 
 @app.post("/init_job_status/")
