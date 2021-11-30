@@ -32,6 +32,7 @@ def download_file(name: str, url: str, retry=3):
 
 
 product_materials_json = os.getenv('PRODUCT_MATERIALS')
+# "[]"
 product_materials_json = product_materials_json.lstrip("\"")
 print("product_materials_json: %s" % product_materials_json)
 

@@ -132,7 +132,7 @@ class YamlUtils(object):
     @staticmethod
     def dump_yaml_file(data, filename):
         with io.open(filename, 'w', encoding='utf-8') as file_name:
-            yaml.safe_dump(data, file_name)
+            yaml.safe_dump(data, file_name, default_flow_style=False)
 
 
 class CommonUtils(object):
@@ -309,6 +309,9 @@ class HostParser(object):
         self.hosts = {}
         self.host_conf_path = host_yml_path
         self.origin_yaml_data = YamlUtils.load_yaml_file(host_yml_path)
+        for group_name, host_info_list in self.origin_yaml_data.items():
+            if not host_info_list:
+                self.origin_yaml_data[group_name] = []
         self.all_hosts = []
         self.all_group_hosts = {}
         self.all_groups = []
@@ -495,8 +498,8 @@ class HostParser(object):
 
     def encrypt(self):
         keygen = importlib.import_module(Constants.KEYGEN_MODULE)
-        for host_group in self.origin_yaml_data:
-            for host_item in self.origin_yaml_data[host_group]:
+        for host_group, host_item_list in self.origin_yaml_data.items():
+            for host_item in host_item_list:
                 if "password" in host_item and "instance_key" not in host_item:
                     instance_key = keygen.generate_key().strip()
                     host_item["instance_key"] = instance_key
@@ -511,8 +514,8 @@ class HostParser(object):
     def decrypt(self):
         try:
             keygen = None
-            for host_group in self.origin_yaml_data:
-                for host_item in self.origin_yaml_data[host_group]:
+            for host_group, host_item_list in self.origin_yaml_data.items():
+                for host_item in host_item_list:
                     if "password" in host_item and "instance_key" in host_item:
                         if not keygen:
                             keygen = importlib.import_module(Constants.KEYGEN_MODULE)
@@ -554,7 +557,7 @@ class HostInfoHandler(object):
         ip_list = []
         if host_ip == Constants.LOCAL_HOST or Constants.IP_REGEX.match(host_ip):
             return [host_ip]
-        # the ip section, eg. 10.1.1.1-123
+        # the ip section, eg. 10.1.X.X-XX
         if Constants.IP_SECTION_REGEX.match(host_ip):
             idx = host_ip.rfind(".")
             ip_prefix = host_ip[:idx + 1]
@@ -598,12 +601,16 @@ class Task(object):
         self.cmd = task_dict.get("cmd", "")
         self.allow_failed = task_dict.get("allow_failed", False)
         try:
-            self.time_out = task_dict.get("time_out", SCHEDULER_ARGS.time_out)
+            self.time_out = task_dict.get("time_out", 0)
+            if self.time_out == 0:
+                self.time_out = SCHEDULER_ARGS.time_out
         except NameError:
             self.time_out = 120
 
         try:
-            self.print_result = task_dict.get("print_result", SCHEDULER_ARGS.print_result)
+            self.print_result = task_dict.get("print_result", None)
+            if self.print_result is None:
+                self.print_result = SCHEDULER_ARGS.print_result
         except NameError:
             self.print_result = False
 
@@ -921,6 +928,7 @@ class FileTask(Task):
                 if not self.scp_out_mode:
                     cmd = cmd + " -m in"
                 host_location_name = host["ip"]
+            LOGGER.debug("execute cmd: " + cmd)
             LOGGER.debug("execute cmd: " + cmd)
             try:
                 if host != Constants.LOCAL_HOST and host["password"]:
@@ -1319,8 +1327,18 @@ def execute_jobs(send_host_ip_list):
                 continue
             allow_failed_num, job_return_code, summary_log = execute_job(analyse_hosts, job, job_name)
             save_recovery_info(job_md5, job_return_code, recovery_data, recovery_id)
-
-            scheduler_return_code = print_summary_log(allow_failed_num, job_name, job_return_code, summary_log) or 1
+            if job_return_code != 0:
+                scheduler_return_code = job_return_code
+                TASK_LOGGER.info("****%s end job: [%s] execute %s" % (CommonUtils.get_cur_timestamp(),
+                                                                      job_name, LogUtils.LOG_INFO_ERR))
+                if summary_log:
+                    TASK_LOGGER.info("****Summary for job [%s] : %s, AllowFailed: %s"
+                                     % (job_name, summary_log, allow_failed_num))
+            else:
+                TASK_LOGGER.info("****%s job: [%s] execute %s" % (CommonUtils.get_cur_timestamp(),
+                                                                  job_name, LogUtils.LOG_INFO_OK))
+                if summary_log:
+                    TASK_LOGGER.info("****Summary for job [%s] : %s" % (job_name, summary_log))
 
         if ("allow_failed" not in job.param or not job.param["allow_failed"]) and job_return_code != 0:
             LOGGER.info("job break because job " + job_name + " must all task success.")
@@ -1367,28 +1385,17 @@ def execute_job(analyse_hosts, job, job_name):
     return allow_failed_num, job_return_code, summary_log
 
 
-def print_summary_log(allow_failed_num, job_name, job_return_code, summary_log):
-    scheduler_return_code = 0
-    if job_return_code != 0:
-        scheduler_return_code = job_return_code
-        TASK_LOGGER.info("****%s end job: [%s] execute %s" % (CommonUtils.get_cur_timestamp(),
-                                                              job_name, LogUtils.LOG_INFO_ERR))
-        if summary_log:
-            TASK_LOGGER.info("****Summary for job [%s] : %s, AllowFailed: %s"
-                             % (job_name, summary_log, allow_failed_num))
-    else:
-        TASK_LOGGER.info("****%s job: [%s] execute %s" % (CommonUtils.get_cur_timestamp(),
-                                                          job_name, LogUtils.LOG_INFO_OK))
-        if summary_log:
-            TASK_LOGGER.info("****Summary for job [%s] : %s" % (job_name, summary_log))
-    return scheduler_return_code
-
-
 def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_param_item=None):
     task_own_log_file = ""
     if "task_own_log_file" in task:
         task_own_log_file = os.path.join(Constants.TMP_SCRIPT_DIR, "task-%s.log" % (task["task_own_log_file"]))
         LogUtils.setup_file_logger(TASK_LOGGER, task_own_log_file)
+
+        task_own_scheduler_log_file = os.path.join(Constants.TMP_SCRIPT_DIR,
+                                                   "task-%s-schedule.log" % (task["task_own_log_file"]))
+        LogUtils.setup_file_logger(LOGGER, task_own_scheduler_log_file,
+                                   fmt="%(asctime)s - %(levelname)s: %(message)s")
+
     if task["type"] == "command":
         cmd_task = CmdTask(task)
         return_code = cmd_task.run(analyse_hosts, param_data, True, job_items=job_param_item,
