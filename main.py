@@ -225,7 +225,7 @@ def run_job(status, jobs, job_status):
                     logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
                     status.set_status(jobs.get("name"), task_name, 200)
             end_time = time.time()
-            logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"),task_name, end_time - start_time))
+            logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"), task_name, end_time - start_time))
 
 
 @app.post("/submit_jobs/")

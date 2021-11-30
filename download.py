@@ -30,14 +30,16 @@ def download_file(name: str, url: str, retry=3):
         else:
             download_file(name, url, --retry)
 
-
-product_materials_json = os.getenv('PRODUCT_MATERIALS')
 # "[]"
-product_materials_json = product_materials_json.lstrip("\"")
-print("product_materials_json: %s" % product_materials_json)
+product_materials_json = os.getenv('PRODUCT_MATERIALS')
+if product_materials_json is None:
+    print("无下载内容..")
+else:
+    product_materials_json = product_materials_json.lstrip("\"")
+    product_materials_json = product_materials_json.rstrip("\"")
+    print("product_materials_json: %s" % product_materials_json)
 
-product_materials = json.loads(product_materials_json)
-for material in product_materials:
-    download_file(material.get("url"), material.get("name"), 3)
-
-print("下载完成.")
+    product_materials = json.loads(product_materials_json)
+    for material in product_materials:
+        download_file(material.get("url"), material.get("name"), 3)
+    print("下载完成.")
