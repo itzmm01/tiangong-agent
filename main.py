@@ -106,6 +106,12 @@ class JobsName(BaseModel):
     name: str
 
 
+class LogInfo(BaseModel):
+    id: int
+    start_line: int
+    step_name: int
+
+
 # 查询日志请求
 class JobLog(BaseModel):
     name: str
@@ -215,6 +221,7 @@ def run_job(status, jobs, job_status):
             elif job_status[task_name] == 1:
                 logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
             else:
+                status.set_status(jobs.get("name"), task_name, 1)
                 if "task_own_log_file" not in task:
                     task["task_own_log_file"] = task_name
                 if "time_out" not in task:
@@ -240,8 +247,15 @@ def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
     status = Status()
     job_status = status.init(job.name, job)
     background_tasks.add_task(run_job, status, job.dict(), job_status)
+    # background_tasks.add_task(test, status, job.dict(), job_status)
 
+    print(background_tasks.tasks)
     return {"code": 200, "message": "jobs submit success"}
+
+
+def test(status, jobs, job_status):
+    print(status, jobs, job_status)
+    time.sleep(600)
 
 
 @app.post("/stop_job")
@@ -283,6 +297,14 @@ def history():
     res = []
     for root1, dirs, files in os.walk('./status_file/'):
         res = [re.sub('.json', '', i) for i in files]
+    return {"code": 200, "message": "success", "data": res}
+
+
+@app.get("/logs/")
+def logs():
+    res = []
+
+
     return {"code": 200, "message": "success", "data": res}
 
 
