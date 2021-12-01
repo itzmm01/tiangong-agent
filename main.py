@@ -106,16 +106,12 @@ class JobsName(BaseModel):
     name: str
 
 
-class LogInfo(BaseModel):
-    id: int
-    start_line: int
-    step_name: int
-
-
 # 查询日志请求
 class JobLog(BaseModel):
-    name: str
-    start: int
+    id: int
+    start_line: int
+    job_name: str
+    task_name: str
 
 
 def get_all_status():
@@ -246,16 +242,31 @@ def run_job(status, jobs, job_status):
 def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
     status = Status()
     job_status = status.init(job.name, job)
+    write_yaml(init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
     background_tasks.add_task(run_job, status, job.dict(), job_status)
-    # background_tasks.add_task(test, status, job.dict(), job_status)
 
-    print(background_tasks.tasks)
     return {"code": 200, "message": "jobs submit success"}
 
 
-def test(status, jobs, job_status):
-    print(status, jobs, job_status)
-    time.sleep(600)
+def init_log_info(job_obj):
+    log_info = {
+        "file_name": str(job_obj["id"]),
+        "name": job_obj.get("name"),
+        "host": job_obj["host"],
+        "INSTALL_DIR": job_obj["params"]["INSTALL_DIR"],
+        "1. prepare material": "",
+        "2. install": "",
+        "3. uninstall": ""
+    }
+
+    for i in job_obj.get("jobs"):
+        log_info[i["job"]["name"]] = i["job"]["host"]
+    return log_info
+
+
+def write_yaml(file_path, dict_obj):
+    with open(file_path, encoding='utf-8',mode='w') as f:
+        yaml.dump(data=dict_obj, stream=f, allow_unicode=True)
 
 
 @app.post("/stop_job")
@@ -277,11 +288,67 @@ def get_job_status(job: JobsName):
     return {"code": code, "message": "success", "name": job.name, "data": res}
 
 
+def cmd_run(host_info,  cmd):
+    if host_info == "local":
+        print(host_info, cmd)
+    else:
+        print(host_info, cmd)
+
+
+def get_log(job_id, job_name, task_name, start_num):
+    pwd = os.path.abspath(os.curdir)
+    job_file = "./log/" + str(job_id)
+    if not os.path.exists(job_file):
+        return {"code": 502, "message": "no such job %s" % job_id}
+    with open(job_file, encoding="utf-8", mode="r") as f1:
+        log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
+
+    if job_name == "1. prepare material":
+        cmd = "sed -n '%s,$p' %s/nohup.out" % (start_num, pwd)
+        print(cmd)
+    elif job_name == "2. install":
+        if log_info[job_name] == "local":
+            host = "local"
+        else:
+            host = log_info["host"][log_info[job_name]][0]
+
+        if task_name == "2.1 pre init check":
+            cmd_str = "sed -n '%s,$p' %s/log/init/" % (start_num, log_info["INSTALL_DIR"])
+            cmd_run(host, cmd_str)
+        elif task_name == "2.2. init":
+            cmd_str = "sed -n '%s,$p' %s/log/init/" % (start_num, log_info["INSTALL_DIR"])
+            cmd_run(host, cmd_str)
+        elif task_name == "2.3. pre install check":
+            cmd_str = "sed -n '%s,$p' %s/log/init/" % (start_num, log_info["INSTALL_DIR"])
+            cmd_run(host, cmd_str)
+        elif task_name == "2.4 install":
+            cmd_str = "sed -n '%s,$p' %s/log/install/" % (start_num, log_info["INSTALL_DIR"])
+            cmd_run(host, cmd_str)
+        else:
+            return {"code": 502, "message": "no support %s" % job_name}
+
+    elif job_name == "3. uninstall":
+        if log_info[job_name] == "local":
+            host = "local"
+        else:
+            host = log_info["host"][log_info[job_name]][0]
+
+        if task_name == "3.1. task uninstall":
+            cmd_str = "sed -n '%s,$p' %s/log/uninstall/" % (start_num, log_info["INSTALL_DIR"])
+            cmd_run(host, cmd_str)
+        else:
+            return {"code": 502, "message": "no support %s" % task_name}
+
+    else:
+        return {"code": 502, "message": "no support %s" % job_name}
+
+
 @app.post("/get_job_log")
-def get_job_log(job: JobLog):
-    status = Status()
-    job_status = status.get_job(job.name)
-    return {"code": 200, "message": "not implement"}
+def get_job_log(log: JobLog):
+
+    result = get_log(log.id, log.job_name, log.task_name, log.start_line)
+
+    return result
 
 
 @app.post("/init_job_status/")
@@ -297,14 +364,6 @@ def history():
     res = []
     for root1, dirs, files in os.walk('./status_file/'):
         res = [re.sub('.json', '', i) for i in files]
-    return {"code": 200, "message": "success", "data": res}
-
-
-@app.get("/logs/")
-def logs():
-    res = []
-
-
     return {"code": 200, "message": "success", "data": res}
 
 
