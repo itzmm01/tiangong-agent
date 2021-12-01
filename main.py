@@ -106,6 +106,12 @@ class JobsName(BaseModel):
     name: str
 
 
+# 查询日志请求
+class JobLog(BaseModel):
+    name: str
+    start: int
+
+
 def get_all_status():
     res = []
     for root1, dirs, files in os.walk('./status_file/'):
@@ -139,8 +145,9 @@ class Status:
             return True
 
     @staticmethod
-    def init(name, jobs):
+    def init(name, job: Jobs):
         status_file = "./status_file/{}.json".format(name)
+        jobs = job.jobs
         job_status = {}
         for job in jobs:
             job_tasks = job['job'].get('tasks')
@@ -231,10 +238,17 @@ def run_job(status, jobs, job_status):
 @app.post("/submit_jobs/")
 def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
     status = Status()
-    job_status = status.init(job.name, job.jobs)
+    job_status = status.init(job.name, job)
     background_tasks.add_task(run_job, status, job.dict(), job_status)
 
     return {"code": 200, "message": "jobs submit success"}
+
+
+@app.post("/stop_job")
+def stop_jobs(job: JobsName):
+    status = Status()
+    job_status = status.get_job(job.name)
+    return {"code": 200, "message": "not implement"}
 
 
 @app.post("/get_job_status/")
@@ -247,6 +261,13 @@ def get_job_status(job: JobsName):
         res = "not found job: {}".format(job.name)
         code = 404
     return {"code": code, "message": "success", "name": job.name, "data": res}
+
+
+@app.post("/get_job_log")
+def get_job_log(job: JobLog):
+    status = Status()
+    job_status = status.get_job(job.name)
+    return {"code": 200, "message": "not implement"}
 
 
 @app.post("/init_job_status/")
