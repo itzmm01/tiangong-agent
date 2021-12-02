@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 from types import FrameType
 from typing import cast
@@ -112,6 +113,7 @@ class JobLog(BaseModel):
     start_line: int
     job_name: str
     task_name: str
+    file_name: str
 
 
 def get_all_status():
@@ -242,7 +244,7 @@ def run_job(status, jobs, job_status):
 def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
     status = Status()
     job_status = status.init(job.name, job)
-    write_yaml(init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
+    write_yaml("./log/" + init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
     background_tasks.add_task(run_job, status, job.dict(), job_status)
 
     return {"code": 200, "message": "jobs submit success"}
@@ -265,7 +267,7 @@ def init_log_info(job_obj):
 
 
 def write_yaml(file_path, dict_obj):
-    with open(file_path, encoding='utf-8',mode='w') as f:
+    with open(file_path, encoding='utf-8', mode='w') as f:
         yaml.dump(data=dict_obj, stream=f, allow_unicode=True)
 
 
@@ -288,14 +290,45 @@ def get_job_status(job: JobsName):
     return {"code": code, "message": "success", "name": job.name, "data": res}
 
 
-def cmd_run(host_info,  cmd):
-    if host_info == "local":
-        print(host_info, cmd)
+def return_cmd(file_name, flag, install_dir, start_line):
+    if file_name == "":
+        cmd = "ls %s/log/%s/" % (install_dir, flag)
     else:
-        print(host_info, cmd)
+        cmd = "sed -n '%s,$p' %s/log/%s/%s" % (start_line, install_dir, flag, file_name)
+    return cmd
 
 
-def get_log(job_id, job_name, task_name, start_num):
+def run_cmd(task_dict):
+    pwd = re.sub(r"\\", "/", os.path.abspath(os.curdir))
+    if task_dict["host"][0] == "local":
+        cmd_str = task_dict["cmd"]
+    else:
+        cmd_str = pwd + "/tools/scheduler/send_cmd.sh -i {} -P {} -u {} -c \"{}\" -p '{}'  -t 600".format(
+            task_dict["host"][0]["ip"], task_dict["host"][0]["port"],
+            task_dict["host"][0]["user"], task_dict["cmd"],
+            task_dict["host"][0]["password"]
+        )
+
+    obj = subprocess.Popen(cmd_str, shell=True, close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    obj.wait()
+    cmd_res_str = []
+    res_data = {"code": 200, "data": ""}
+    if obj.returncode == 0:
+        for line in obj.stdout.readlines():
+            cmd_res_str.append(line.decode('cp936').encode("utf-8").decode("utf-8").strip("\r\n"))
+    else:
+        res_data["code"] = 502
+        for line in obj.stderr.readlines():
+            cmd_res_str.append(line.decode('cp936').encode("utf-8").decode("utf-8").strip("\n"))
+
+    res_data["data"] = "\n".join(cmd_res_str)
+    logger.info("\n".join(cmd_res_str))
+    logger.info(cmd_str)
+
+    return res_data
+
+
+def get_log(job_id, job_name, task_name, file_name, start_num):
     pwd = os.path.abspath(os.curdir)
     job_file = "./log/" + str(job_id)
     if not os.path.exists(job_file):
@@ -303,50 +336,49 @@ def get_log(job_id, job_name, task_name, start_num):
     with open(job_file, encoding="utf-8", mode="r") as f1:
         log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
 
-    if job_name == "1. prepare material":
-        cmd = "sed -n '%s,$p' %s/nohup.out" % (start_num, pwd)
-        print(cmd)
-    elif job_name == "2. install":
-        if log_info[job_name] == "local":
-            host = "local"
-        else:
-            host = log_info["host"][log_info[job_name]][0]
+    host = ["local"] if log_info[job_name] == "local" else [log_info["host"][log_info[job_name]][0]]
 
+    task = {
+        "title": task_name,
+        "name": task_name,
+        "cmd": "ls",
+        "type": "command",
+        "time_out": 3600,
+        "checked": True,
+        "key": task_name,
+        "host": host
+    }
+
+    if job_name == "1. prepare material":
+        task["cmd"] = "sed -n '%s,$p' %s/nohup.out" % (start_num, pwd)
+
+    elif job_name == "2. install":
         if task_name == "2.1 pre init check":
-            cmd_str = "sed -n '%s,$p' %s/log/init/" % (start_num, log_info["INSTALL_DIR"])
-            cmd_run(host, cmd_str)
+            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num)
         elif task_name == "2.2. init":
-            cmd_str = "sed -n '%s,$p' %s/log/init/" % (start_num, log_info["INSTALL_DIR"])
-            cmd_run(host, cmd_str)
+            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num)
         elif task_name == "2.3. pre install check":
-            cmd_str = "sed -n '%s,$p' %s/log/init/" % (start_num, log_info["INSTALL_DIR"])
-            cmd_run(host, cmd_str)
+            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num)
         elif task_name == "2.4 install":
-            cmd_str = "sed -n '%s,$p' %s/log/install/" % (start_num, log_info["INSTALL_DIR"])
-            cmd_run(host, cmd_str)
+            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num)
         else:
-            return {"code": 502, "message": "no support %s" % job_name}
+            return {"code": 502, "message": "no support %s" % task_name}
 
     elif job_name == "3. uninstall":
-        if log_info[job_name] == "local":
-            host = "local"
-        else:
-            host = log_info["host"][log_info[job_name]][0]
-
         if task_name == "3.1. task uninstall":
-            cmd_str = "sed -n '%s,$p' %s/log/uninstall/" % (start_num, log_info["INSTALL_DIR"])
-            cmd_run(host, cmd_str)
+            task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num)
         else:
             return {"code": 502, "message": "no support %s" % task_name}
 
     else:
         return {"code": 502, "message": "no support %s" % job_name}
 
+    return run_cmd(task)
+
 
 @app.post("/get_job_log")
 def get_job_log(log: JobLog):
-
-    result = get_log(log.id, log.job_name, log.task_name, log.start_line)
+    result = get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line)
 
     return result
 
@@ -369,3 +401,4 @@ def history():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=61234)
+
