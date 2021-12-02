@@ -315,15 +315,15 @@ def run_cmd(task_dict):
     res_data = {"code": 200, "data": ""}
     if obj.returncode == 0:
         for line in obj.stdout.readlines():
-            cmd_res_str.append(line.decode('cp936').encode("utf-8").decode("utf-8").strip("\r\n"))
+            cmd_res_str.append(line.decode('cp936').strip("\n"))
+        #cmd_res_str = obj.stdout.readlines()
     else:
         res_data["code"] = 502
         for line in obj.stderr.readlines():
-            cmd_res_str.append(line.decode('cp936').encode("utf-8").decode("utf-8").strip("\n"))
+            cmd_res_str.append(line.decode('cp936').strip("\n"))
+        #cmd_res_str = obj.stdout.readlines()
 
     res_data["data"] = "\n".join(cmd_res_str)
-    logger.info("\n".join(cmd_res_str))
-    logger.info(cmd_str)
 
     return res_data
 
