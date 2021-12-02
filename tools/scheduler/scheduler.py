@@ -925,7 +925,6 @@ class FileTask(Task):
                     cmd = cmd + " -m in"
                 host_location_name = host["ip"]
             LOGGER.debug("execute cmd: " + cmd)
-            LOGGER.debug("execute cmd: " + cmd)
             try:
                 if host != Constants.LOCAL_HOST and host["password"]:
                     pwd_str = " -p '" + str(host["password"]) + "' "
@@ -1364,7 +1363,7 @@ def execute_job(analyse_hosts, job, job_name):
                 PRINT_LOGGER.info("  task: " + task_name)
                 TASK_LOGGER.info("  task: " + task_name)
                 LOGGER.info("execute task [%s] in job [%s]" % (task_name, job_name))
-                return_code, _ = execute_task(analyse_hosts, task, PARAM_DATA, job.node_parallel, job_param_item)
+                return_code = execute_task(analyse_hosts, task, PARAM_DATA, job.node_parallel, job_param_item)
                 if return_code != 0:
                     if "allow_failed" in task and task["allow_failed"]:
                         allow_failed_num += 1
@@ -1382,7 +1381,6 @@ def execute_job(analyse_hosts, job, job_name):
 
 
 def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_param_item=None):
-    task_own_log_file = ""
     if "task_own_log_file" in task:
         task_own_log_file = os.path.join(Constants.TMP_SCRIPT_DIR, "task-%s.log" % (task["task_own_log_file"]))
         LogUtils.setup_file_logger(TASK_LOGGER, task_own_log_file)
@@ -1406,7 +1404,7 @@ def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_p
     else:
         LOGGER.error("task type " + task["type"] + " is not supported.")
         return_code = 1
-    return return_code, task_own_log_file
+    return return_code
 
 
 def init_task_own_log_file(job_param, task_name):
