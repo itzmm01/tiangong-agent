@@ -1,3 +1,5 @@
+#!/usr/bin/python 
+# -*- coding: utf-8 -*
 import json
 import logging
 import os
@@ -19,7 +21,6 @@ import time
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover
-        # Get corresponding Loguru level if it exists
         try:
             level = logger.level(record.levelname).name
         except ValueError:
@@ -274,7 +275,6 @@ def write_yaml(file_path, dict_obj):
 @app.post("/stop_job")
 def stop_jobs(job: JobsName):
     status = Status()
-    job_status = status.get_job(job.name)
     return {"code": 200, "message": "not implement"}
 
 
@@ -299,6 +299,7 @@ def return_cmd(file_name, flag, install_dir, start_line):
 
 
 def run_cmd(task_dict):
+    res_data = {"code": 200, "data": ""}
     pwd = re.sub(r"\\", "/", os.path.abspath(os.curdir))
     if task_dict["host"][0] == "local":
         cmd_str = task_dict["cmd"]
@@ -309,22 +310,9 @@ def run_cmd(task_dict):
             task_dict["host"][0]["password"]
         )
 
-    obj = subprocess.Popen(cmd_str, shell=True, close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    obj.wait()
-    cmd_res_str = []
-    res_data = {"code": 200, "data": ""}
-    if obj.returncode == 0:
-        for line in obj.stdout.readlines():
-            cmd_res_str.append(line.decode('cp936').strip("\n"))
-        #cmd_res_str = obj.stdout.readlines()
-    else:
-        res_data["code"] = 502
-        for line in obj.stderr.readlines():
-            cmd_res_str.append(line.decode('cp936').strip("\n"))
-        #cmd_res_str = obj.stdout.readlines()
-
-    res_data["data"] = "\n".join(cmd_res_str)
-
+    obj = subprocess.run(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+    
+    res_data["data"] = obj.stdout if obj.returncode == 0 else obj.stderr
     return res_data
 
 
@@ -401,4 +389,3 @@ def history():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=61234)
-
