@@ -21,6 +21,7 @@ import time
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover
+        # Get corresponding Loguru level if it exists
         try:
             level = logger.level(record.levelname).name
         except ValueError:
@@ -257,11 +258,9 @@ def init_log_info(job_obj):
         "name": job_obj.get("name"),
         "host": job_obj["host"],
         "INSTALL_DIR": job_obj["params"]["INSTALL_DIR"],
-        "1. prepare material": "",
-        "2. install": "",
-        "3. uninstall": ""
     }
-
+    
+    #logger.debug(job_obj.get("jobs"))
     for i in job_obj.get("jobs"):
         log_info[i["job"]["name"]] = i["job"]["host"]
     return log_info
@@ -275,6 +274,7 @@ def write_yaml(file_path, dict_obj):
 @app.post("/stop_job")
 def stop_jobs(job: JobsName):
     status = Status()
+    job_status = status.get_job(job.name)
     return {"code": 200, "message": "not implement"}
 
 
@@ -310,7 +310,8 @@ def run_cmd(task_dict):
             task_dict["host"][0]["password"]
         )
 
-    obj = subprocess.run(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+    #obj = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    obj = subprocess.run(cmd_str,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,encoding="utf-8")
     
     res_data["data"] = obj.stdout if obj.returncode == 0 else obj.stderr
     return res_data
@@ -324,7 +325,13 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
     with open(job_file, encoding="utf-8", mode="r") as f1:
         log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
 
-    host = ["local"] if log_info[job_name] == "local" else [log_info["host"][log_info[job_name]][0]]
+    if log_info.get(job_name) is None:
+        return {"code": 502, "message": "step: %s no find, pelase check" % job_name}
+
+    if log_info["host"].get(log_info[job_name]):
+        host = ["local"] if log_info[job_name] == "local" else [log_info["host"].get(log_info[job_name])[0]]
+    else:
+        return {"code": 502, "message": "step: %s no set host, pelase check" % job_name}
 
     task = {
         "title": task_name,
@@ -389,3 +396,5 @@ def history():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=61234)
+
+
