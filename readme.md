@@ -8,7 +8,7 @@
 # 安装依赖库
 pip3 install -r requirements.txt
 # 启动
-python3 main.py
+nohup python3 main.py &
 ```
 
 ## docker构建
