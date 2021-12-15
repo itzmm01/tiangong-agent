@@ -308,11 +308,12 @@ def run_cmd(task_dict):
             task_dict["host"][0]["user"], task_dict["cmd"],
             task_dict["host"][0]["password"]
         )
-
+    logger.info("cmd str: {}".format(cmd_str))
     obj = subprocess.Popen(cmd_str, shell=True, close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     obj.wait()
     cmd_res_str = []
     res_data = {"code": 200, "data": ""}
+    logger.info("cmd return code: {}".format(obj.returncode))
     if obj.returncode == 0:
         for line in obj.stdout.readlines():
             cmd_res_str.append(line.decode('cp936').strip("\n"))
@@ -349,7 +350,7 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
         "host": host
     }
 
-    if job_name == "1. prepare material":
+    if job_name == "1. prepare material" or job_name == "prepare":
         task["cmd"] = "sed -n '%s,$p' %s/nohup.out" % (start_num, pwd)
 
     elif job_name == "2. install":
@@ -373,13 +374,15 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
     else:
         return {"code": 502, "message": "no support %s" % job_name}
 
+    logger.info("log cmd : {}".format(task.get("cmd")))
+
     return run_cmd(task)
 
 
 @app.post("/get_job_log")
 def get_job_log(log: JobLog):
+    logger.info("get_job_log: {}, job:{},task:{},file: {}".format(log.id,log.job_name,log.task_name,log.file_name))
     result = get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line)
-
     return result
 
 
