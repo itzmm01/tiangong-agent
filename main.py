@@ -183,7 +183,11 @@ class Status:
         status_file = "./status_file/{}.json".format(name)
         with open(status_file, "r") as f1:
             step_status = json.loads(f1.read())
-        step_status[task_name] = status
+        if task_name == "*":
+            for key in step_status:
+                step_status[key] = status 
+        else:
+            step_status[task_name] = status
         with open(status_file, "w") as f1:
             f1.write(json.dumps(step_status))
 
@@ -196,50 +200,59 @@ def json_to_yml(json_data, yml_path):
 
 def run_job(status, jobs, job_status):
     for job in jobs.get('jobs'):
-        job_host = job["job"].get('host')
-        if check_ip(job_host):
-            hosts = []
-            for group, host_list in jobs.get('host').items():
-                for host in host_list:
-                    if host.get("ip") == job_host:
-                        hosts = [host]
-        else:
-            if job_host == "local":
-                hosts = ["local"]
+        start_time = time.time()
+        try:
+            job_host = job["job"].get('host')
+            if check_ip(job_host):
+                hosts = []
+                for group, host_list in jobs.get('host').items():
+                    for host in host_list:
+                        if host.get("ip") == job_host:
+                            hosts = [host]
             else:
-                hosts = jobs.get('host').get(job["job"].get('host'))
-        if len(hosts) == 0:
-            logger.error("not found host info")
-            return
-
-        for task in job['job'].get('tasks'):
-            task_name = job['job'].get('name') + "-" + task.get('name')
-            start_time = time.time()
-
-            if job_status[task_name] == 200:
-                logger.info("job {}: {} is Run complete...".format(jobs.get("name"), task_name))
-            elif job_status[task_name] == 1:
-                logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
-            else:
-                status.set_status(jobs.get("name"), task_name, 1)
-                if "task_own_log_file" not in task:
-                    task["task_own_log_file"] = task_name
-                if "time_out" not in task:
-                    task["time_out"] = 36000
-                if "print_result" not in task:
-                    task["print_result"] = True
-
-                res, log_file = scheduler.execute_task(hosts, task, jobs.get('params'))
-                logger.info(str(res), log_file)
-                if res != 0:
-                    status.set_status(jobs.get("name"), task_name, 502)
-                    logger.error("job {}: {} is Run error...".format(jobs.get("name"), task_name))
-                    return
+                if job_host == "local":
+                    hosts = ["local"]
                 else:
-                    logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
-                    status.set_status(jobs.get("name"), task_name, 200)
+                    hosts = jobs.get('host').get(job["job"].get('host'))
+            if len(hosts) == 0:
+                logger.error("not found host info")
+                return
+
+            for task in job['job'].get('tasks'):
+                task_name = job['job'].get('name') + "-" + task.get('name')
+                start_time = time.time()
+
+                if job_status[task_name] == 200:
+                    logger.info("job {}: {} is Run complete...".format(jobs.get("name"), task_name))
+                    status.set_status(jobs.get("name"), "err", "")
+                elif job_status[task_name] == 1:
+                    logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
+                    status.set_status(jobs.get("name"), "err", "")
+                else:
+                    status.set_status(jobs.get("name"), task_name, 1)
+                    if "task_own_log_file" not in task:
+                        task["task_own_log_file"] = task_name
+                    if "time_out" not in task:
+                        task["time_out"] = 36000
+                    if "print_result" not in task:
+                        task["print_result"] = True
+
+                    res = scheduler.execute_task(hosts, task, jobs.get('params'))
+
+                    if res != 0:
+                        status.set_status(jobs.get("name"), task_name, 502)
+                        logger.error("job {}: {} is Run error...".format(jobs.get("name"), task_name))
+                    else:
+                        logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
+                        status.set_status(jobs.get("name"), task_name, 200)
+                    status.set_status(jobs.get("name"), "err", "")
+                end_time = time.time()
+                logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"), task_name, end_time - start_time))
+        except Exception as e:
+            status.set_status(jobs.get("name"), "*", 502)
+            status.set_status(jobs.get("name"), "err", str(e))
             end_time = time.time()
-            logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"), task_name, end_time - start_time))
+            logger.error("job {} ,duration: {}".format(jobs.get("name"), end_time - start_time, e))
 
 
 @app.post("/submit_jobs/")
@@ -259,8 +272,8 @@ def init_log_info(job_obj):
         "host": job_obj["host"],
         "INSTALL_DIR": job_obj["params"]["INSTALL_DIR"],
     }
-    
-    #logger.debug(job_obj.get("jobs"))
+
+    # logger.debug(job_obj.get("jobs"))
     for i in job_obj.get("jobs"):
         log_info[i["job"]["name"]] = i["job"]["host"]
     return log_info
@@ -284,10 +297,13 @@ def get_job_status(job: JobsName):
     code = 200
     if status.get_job(job.name):
         res = status.get_job(job.name)
+        err = res.get("err")
+        del res["err"]
     else:
         res = "not found job: {}".format(job.name)
+        err = res
         code = 404
-    return {"code": code, "message": "success", "name": job.name, "data": res}
+    return {"code": code, "message": "success", "name": job.name, "data": res, "err": err}
 
 
 def return_cmd(file_name, flag, install_dir, start_line):
@@ -310,9 +326,9 @@ def run_cmd(task_dict):
             task_dict["host"][0]["password"]
         )
 
-    #obj = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    obj = subprocess.run(cmd_str,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,encoding="utf-8")
-    
+    # obj = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    obj = subprocess.run(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+
     res_data["data"] = obj.stdout if obj.returncode == 0 else obj.stderr
     return res_data
 
@@ -396,5 +412,4 @@ def history():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=61234)
-
 
