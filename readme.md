@@ -1,48 +1,31 @@
 ## 基础环境
 
-必须python3.6以上
+使用Miniconda3-python
+
+需要磁盘空间600M
+
+由于需要安装python库需要保证能访问互联网
 
 ## 安装
 
 ```bash
-# 安装依赖库
-pip3 install -r requirements.txt
-# 启动
-nohup python3 main.py &
+# ./install.sh 安装端口
+bash ./install.sh 61234
 ```
 
-## docker构建
-
-dockerfile
+## 服务管理
 
 ```bash
-#base image
-FROM alpine:latest
-
-#Compiling person
-MAINTAINER yangchao
-
-# environment variable 
-ENV LANG=C.UTF-8
-
-# Setting Update Source 
-RUN echo -e "http://mirrors.aliyun.com/alpine/latest-stable/main/\nhttp://mirrors.aliyun.com/alpine/latest-stable/community/" > /etc/apk/repositories && \
-    echo -e "nameserver 114.114.114.114" /etc/resolv.conf && \
-    apk --no-cache update && \
-    apk add --no-cache openssh-client tzdata python3 python3-dev py3-pip git gcc libffi-dev musl-dev make && \ 
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    git clone https://git.woa.com/p_chaooyang/tiangong-agent && \
-    cd setup-tools-agent && \
-    pip3 --no-cache-dir install --index-url  https://mirrors.aliyun.com/pypi/simple --upgrade pip && \
-    pip3 --no-cache-dir install --index-url  https://mirrors.aliyun.com/pypi/simple install -r requirements.txt 
-
-# port
-EXPOSE 80
-
-WORKDIR /setup-tools-agent
-
-# CMD
-CMD ["/usr/bin/python3","main.py"]
+# 查看状态
+systemctl status tiangong-agent
+# 启动
+systemctl start tiangong-agent
+# 停止
+systemctl stop tiangong-agent
+# 重启
+systemctl restart tiangong-agent
+# 查看日志
+tail -f nohup.out
 ```
 
 
