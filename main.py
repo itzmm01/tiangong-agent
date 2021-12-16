@@ -242,6 +242,7 @@ def run_job(status, jobs, job_status):
                     if res != 0:
                         status.set_status(jobs.get("name"), task_name, 502)
                         logger.error("job {}: {} is Run error...".format(jobs.get("name"), task_name))
+                        return
                     else:
                         logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
                         status.set_status(jobs.get("name"), task_name, 200)
@@ -253,6 +254,7 @@ def run_job(status, jobs, job_status):
             status.set_status(jobs.get("name"), "err", str(e))
             end_time = time.time()
             logger.error("job {} ,duration: {}".format(jobs.get("name"), end_time - start_time, e))
+            return
 
 
 @app.post("/submit_jobs/")
