@@ -24,6 +24,8 @@ systemctl start tiangong-agent
 systemctl stop tiangong-agent
 # 重启
 systemctl restart tiangong-agent
+# 开机启动
+systemctl enable tiangong-agent
 # 查看日志
 tail -f nohup.out
 ```
