@@ -298,7 +298,8 @@ def get_job_status(job: JobsName):
     if status.get_job(job.name):
         res = status.get_job(job.name)
         err = res.get("err")
-        del res["err"]
+        if res.get("err") is not None:
+            del res["err"]
     else:
         res = "not found job: {}".format(job.name)
         err = res
