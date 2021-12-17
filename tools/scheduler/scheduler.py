@@ -601,12 +601,16 @@ class Task(object):
         self.cmd = task_dict.get("cmd", "")
         self.allow_failed = task_dict.get("allow_failed", False)
         try:
-            self.time_out = task_dict.get("time_out", SCHEDULER_ARGS.time_out)
+            self.time_out = task_dict.get("time_out", 0)
+            if self.time_out == 0:
+                self.time_out = SCHEDULER_ARGS.time_out
         except NameError:
             self.time_out = 120
 
         try:
-            self.print_result = task_dict.get("print_result", SCHEDULER_ARGS.print_result)
+            self.print_result = task_dict.get("print_result", None)
+            if self.print_result is None:
+                self.print_result = SCHEDULER_ARGS.print_result
         except NameError:
             self.print_result = False
 
@@ -1384,6 +1388,12 @@ def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_p
     if "task_own_log_file" in task:
         task_own_log_file = os.path.join(Constants.TMP_SCRIPT_DIR, "task-%s.log" % (task["task_own_log_file"]))
         LogUtils.setup_file_logger(TASK_LOGGER, task_own_log_file)
+
+        task_own_scheduler_log_file = os.path.join(Constants.TMP_SCRIPT_DIR,
+                                                   "task-%s-schedule.log" % (task["task_own_log_file"]))
+        LogUtils.setup_file_logger(LOGGER, task_own_scheduler_log_file,
+                                   fmt="%(asctime)s - %(levelname)s: %(message)s")
+
     if task["type"] == "command":
         cmd_task = CmdTask(task)
         return_code = cmd_task.run(analyse_hosts, param_data, True, job_items=job_param_item,
