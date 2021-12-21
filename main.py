@@ -1,3 +1,5 @@
+#!/usr/bin/python 
+# -*- coding: utf-8 -*
 import json
 import logging
 import os
@@ -256,11 +258,9 @@ def init_log_info(job_obj):
         "name": job_obj.get("name"),
         "host": job_obj["host"],
         "INSTALL_DIR": job_obj["params"]["INSTALL_DIR"],
-        "1. prepare material": "",
-        "2. install": "",
-        "3. uninstall": ""
     }
-
+    
+    #logger.debug(job_obj.get("jobs"))
     for i in job_obj.get("jobs"):
         log_info[i["job"]["name"]] = i["job"]["host"]
     return log_info
@@ -299,6 +299,7 @@ def return_cmd(file_name, flag, install_dir, start_line):
 
 
 def run_cmd(task_dict):
+    res_data = {"code": 200, "data": ""}
     pwd = re.sub(r"\\", "/", os.path.abspath(os.curdir))
     if task_dict["host"][0] == "local":
         cmd_str = task_dict["cmd"]
@@ -337,7 +338,13 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
     with open(job_file, encoding="utf-8", mode="r") as f1:
         log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
 
-    host = ["local"] if log_info[job_name] == "local" else [log_info["host"][log_info[job_name]][0]]
+    if log_info.get(job_name) is None:
+        return {"code": 502, "message": "step: %s no find, pelase check" % job_name}
+
+    if log_info["host"].get(log_info[job_name]):
+        host = ["local"] if log_info[job_name] == "local" else [log_info["host"].get(log_info[job_name])[0]]
+    else:
+        return {"code": 502, "message": "step: %s no set host, pelase check" % job_name}
 
     task = {
         "title": task_name,
@@ -404,4 +411,5 @@ def history():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=61234)
+
 
