@@ -347,7 +347,7 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
     if log_info.get(job_name) is None:
         return {"code": 502, "message": "step: %s no find, pelase check" % job_name}
 
-    if log_info["host"].get(log_info[job_name]):
+    if log_info["host"].get(log_info[job_name]) or log_info[job_name] == "local":
         host = ["local"] if log_info[job_name] == "local" else [log_info["host"].get(log_info[job_name])[0]]
     else:
         return {"code": 502, "message": "step: %s no set host, pelase check" % job_name}
@@ -365,7 +365,6 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
 
     if job_name == "1. prepare material":
         task["cmd"] = "sed -n '%s,$p' %s/nohup.out" % (start_num, pwd)
-
     elif job_name == "2. install":
         if task_name == "2.1 pre init check":
             task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num)
