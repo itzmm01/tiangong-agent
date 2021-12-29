@@ -27,7 +27,7 @@ start(){
 }
 
 stop(){
-    ps -ef | grep $home_dir/main.py | grep -v "grep" | awk '{print \$2}' | xargs -i kill -9 {}
+    ps -ef | grep './Miniconda3/bin/uvicorn' | grep -v "grep" | awk '{print \$2}' | xargs -i kill -9 {}
 
 }
 
