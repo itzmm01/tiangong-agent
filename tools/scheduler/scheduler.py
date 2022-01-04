@@ -309,9 +309,6 @@ class HostParser(object):
         self.hosts = {}
         self.host_conf_path = host_yml_path
         self.origin_yaml_data = YamlUtils.load_yaml_file(host_yml_path)
-        for group_name, host_info_list in self.origin_yaml_data.items():
-            if not host_info_list:
-                self.origin_yaml_data[group_name] = []
         self.all_hosts = []
         self.all_group_hosts = {}
         self.all_groups = []
@@ -498,8 +495,8 @@ class HostParser(object):
 
     def encrypt(self):
         keygen = importlib.import_module(Constants.KEYGEN_MODULE)
-        for host_group, host_item_list in self.origin_yaml_data.items():
-            for host_item in host_item_list:
+        for host_group in self.origin_yaml_data:
+            for host_item in self.origin_yaml_data[host_group]:
                 if "password" in host_item and "instance_key" not in host_item:
                     instance_key = keygen.generate_key().strip()
                     host_item["instance_key"] = instance_key
@@ -514,8 +511,8 @@ class HostParser(object):
     def decrypt(self):
         try:
             keygen = None
-            for host_group, host_item_list in self.origin_yaml_data.items():
-                for host_item in host_item_list:
+            for host_group in self.origin_yaml_data:
+                for host_item in self.origin_yaml_data[host_group]:
                     if "password" in host_item and "instance_key" in host_item:
                         if not keygen:
                             keygen = importlib.import_module(Constants.KEYGEN_MODULE)
@@ -782,16 +779,21 @@ class CmdTask(Task):
             cmd_list.append({"cmd": replace_param_cmd, "param_item": replace_info_item, "key_list": key_list})
 
     def parse_with_items(self, host, cmd, cmd_list, job_items, param_data, replace_info=None, key_list=None):
-        global_item_params = param_data.get(self.with_items)
         _ip = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
-        host_item_params = param_data.get(self.with_items + "@" + _ip)
+        _ip_with_items = self.with_items + "@" + _ip
+        if self.with_items not in param_data and _ip_with_items not in param_data:
+            TASK_LOGGER.info("can't find any task items(%s or %s)." % (self.with_items, _ip_with_items))
+            cmd_list.append({"item_condition": None})
+            return
+
+        global_item_params = param_data.get(self.with_items)
+        host_item_params = param_data.get(_ip_with_items)
         if host_item_params:
             item_params = host_item_params
         elif global_item_params:
             item_params = global_item_params
         else:
-            TASK_LOGGER.info("can't find any task items.")
-            cmd_list.append({"item_condition": None})
+            TASK_LOGGER.info("task items %s and %s are empty, will do nothing." % (self.with_items, _ip_with_items))
             return
 
         if item_params:
@@ -854,6 +856,9 @@ class CmdTask(Task):
                 if host["password"]:
                     cmd = cmd + Constants.PASSWORD_PLACE_HOLDER
                 cmd = cmd + " -t " + str(self.time_out)
+                # if find nohup XXX, will execute cmd in background
+                if re.findall(r"nohup\s+\w+", cmd):
+                    cmd = cmd + " -b y"
                 host_location_name = host["ip"]
 
             if self.with_items:
