@@ -22,7 +22,7 @@ echo """#!/bin/bash
 
 start(){
     cd $home_dir
-    nohup ./Miniconda3/bin/uvicorn main:app --host 0.0.0.0 --port $port >> $home_dir/nohup.out 2>&1 &
+    nohup ./Miniconda3/bin/uvicorn main:app --host 0.0.0.0 --port $port --no-access-log >> $home_dir/nohup.out 2>&1 &
 
 }
 
