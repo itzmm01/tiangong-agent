@@ -4,10 +4,15 @@ import json
 import logging
 import os
 import re
+import signal
 import subprocess
 import sys
+import threading
+from multiprocessing import Process, Pool
+from multiprocessing.pool import ThreadPool
 from types import FrameType
 from typing import cast
+import asyncio
 
 import uvicorn
 import yaml
@@ -47,7 +52,8 @@ if not os.path.exists(log_path):
 
 debug = True
 logging_level = logging.DEBUG if debug else logging.INFO
-loggers = ("uvicorn.asgi", "uvicorn.access")
+# loggers = ("uvicorn.asgi", "uvicorn.access")
+loggers = "uvicorn.asgi"
 
 logging.getLogger().handlers = [InterceptHandler()]
 for logger_name in loggers:
@@ -78,21 +84,21 @@ loguru_config = {
 # logger.info('If you are using Python {}, prefer {feature} of course!', 3.6, feature='f-strings') 格式化输入内容
 # 可通过等级不同对日志文件进行分割储存
 logger.configure(**loguru_config)
-
+access_log = False
 # 正式环境关闭swagger
 # app = FastAPI(
 #     docs_url=None,
 #     redoc_url=None,
-#     access_log=True
+#     access_log=False
 # )
 
 app = FastAPI(
-    access_log=True,
+    access_log=access_log,
 )
 
 
 @app.get("/")
-async def root():
+def root():
     return {"message": "Hello World"}
 
 
@@ -107,12 +113,15 @@ class Jobs(BaseModel):
 class JobsName(BaseModel):
     id: int
     name: str
+    job_name: str
+    task_name: str
 
 
 # 查询日志请求
 class JobLog(BaseModel):
     id: int
     start_line: int
+    last_line: int
     job_name: str
     task_name: str
     file_name: str
@@ -185,11 +194,27 @@ class Status:
             step_status = json.loads(f1.read())
         if task_name == "*":
             for key in step_status:
-                step_status[key] = status 
+                step_status[key] = status
         else:
             step_status[task_name] = status
         with open(status_file, "w") as f1:
             f1.write(json.dumps(step_status))
+
+    @staticmethod
+    def save_pid(name, job_pid):
+        status_file = "./status_file/{}-pid.json".format(name)
+        with open(status_file, "w") as f1:
+            f1.write(str(job_pid))
+
+    @staticmethod
+    def get_pid(name):
+        status_file = "./status_file/{}-pid.json".format(name)
+        if os.path.exists(status_file):
+            with open(status_file, "r") as f1:
+                job_pid = f1.read()
+        else:
+            job_pid = None
+        return job_pid
 
 
 def json_to_yml(json_data, yml_path):
@@ -199,62 +224,59 @@ def json_to_yml(json_data, yml_path):
 
 
 def run_job(status, jobs, job_status):
+    print(threading.currentThread())
     for job in jobs.get('jobs'):
-        start_time = time.time()
-        try:
-            job_host = job["job"].get('host')
-            if check_ip(job_host):
-                hosts = []
-                for group, host_list in jobs.get('host').items():
-                    for host in host_list:
-                        if host.get("ip") == job_host:
-                            hosts = [host]
+        job_host = job["job"].get('host')
+        if check_ip(job_host):
+            hosts = []
+            for group, host_list in jobs.get('host').items():
+                for host in host_list:
+                    if host.get("ip") == job_host:
+                        hosts = [host]
+        else:
+            if job_host == "local":
+                hosts = ["local"]
             else:
-                if job_host == "local":
-                    hosts = ["local"]
-                else:
-                    hosts = jobs.get('host').get(job["job"].get('host'))
-            if len(hosts) == 0:
-                logger.error("not found host info")
-                return
-
-            for task in job['job'].get('tasks'):
-                task_name = job['job'].get('name') + "-" + task.get('name')
-                start_time = time.time()
-
-                if job_status[task_name] == 200:
-                    logger.info("job {}: {} is Run complete...".format(jobs.get("name"), task_name))
-                    status.set_status(jobs.get("name"), "err", "")
-                elif job_status[task_name] == 1:
-                    logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
-                    status.set_status(jobs.get("name"), "err", "")
-                else:
-                    status.set_status(jobs.get("name"), task_name, 1)
-                    if "task_own_log_file" not in task:
-                        task["task_own_log_file"] = task_name
-                    if "time_out" not in task:
-                        task["time_out"] = 36000
-                    if "print_result" not in task:
-                        task["print_result"] = True
-
-                    res = scheduler.execute_task(hosts, task, jobs.get('params'))
-
-                    if res != 0:
-                        status.set_status(jobs.get("name"), task_name, 502)
-                        logger.error("job {}: {} is Run error...".format(jobs.get("name"), task_name))
-                        return
-                    else:
-                        logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
-                        status.set_status(jobs.get("name"), task_name, 200)
-                    status.set_status(jobs.get("name"), "err", "")
-                end_time = time.time()
-                logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"), task_name, end_time - start_time))
-        except Exception as e:
-            status.set_status(jobs.get("name"), "*", 502)
-            status.set_status(jobs.get("name"), "err", str(e))
-            end_time = time.time()
-            logger.error("job {} ,duration: {}".format(jobs.get("name"), end_time - start_time, e))
+                hosts = jobs.get('host').get(job["job"].get('host'))
+        if len(hosts) == 0:
+            logger.error("not found host info")
             return
+        for task in job['job'].get('tasks'):
+            task_name = job['job'].get('name') + "-" + task.get('name')
+            start_time = time.time()
+
+            if job_status[task_name] == 200:
+                logger.info("job {}: {} is already complete...".format(jobs.get("name"), task_name))
+                status.set_status(jobs.get("name"), "err", "")
+            elif job_status[task_name] == 1:
+                logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
+                status.set_status(jobs.get("name"), "err", "")
+            else:
+                status.set_status(jobs.get("name"), task_name, 1)
+                if "task_own_log_file" not in task:
+                    task["task_own_log_file"] = task_name
+                if "time_out" not in task:
+                    task["time_out"] = 36000
+                if "print_result" not in task:
+                    task["print_result"] = True
+
+                res = scheduler.execute_task(hosts, task, jobs.get('params'))
+
+                if res != 0:
+                    status.set_status(jobs.get("name"), task_name, 502)
+                    logger.error("job {}: {} is Run error...".format(jobs.get("name"), task_name))
+                    return
+                else:
+                    logger.info("job {}: {} is Run success...".format(jobs.get("name"), task_name))
+                    status.set_status(jobs.get("name"), task_name, 200)
+                status.set_status(jobs.get("name"), "err", "")
+            end_time = time.time()
+            logger.info("job {} ,task: {} ,duration: {}".format(jobs.get("name"), task_name, end_time - start_time))
+
+
+def run_job1(status, job, job_status):
+    time.sleep(30)
+    logger.info(status, job, job_status)
 
 
 @app.post("/submit_jobs/")
@@ -263,7 +285,13 @@ def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
     job_status = status.init(job.name, job)
     write_yaml("./log/" + init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
     background_tasks.add_task(run_job, status, job.dict(), job_status)
-
+    # await run_job(status, job.dict(), job_status)
+    # loop = asyncio.get_event_loop()
+    # await loop.run_in_executor(None, run_job, (status, job.dict(), job_status,))
+    # p = Process(target=run_job1, args=(status, job.dict(), job_status,))
+    # p.daemon = True
+    # p.start()
+    # status.save_pid(job.dict().get("name"), p.pid)
     return {"code": 200, "message": "jobs submit success"}
 
 
@@ -274,8 +302,6 @@ def init_log_info(job_obj):
         "host": job_obj["host"],
         "INSTALL_DIR": job_obj["params"]["INSTALL_DIR"],
     }
-
-    # logger.debug(job_obj.get("jobs"))
     for i in job_obj.get("jobs"):
         log_info[i["job"]["name"]] = i["job"]["host"]
     return log_info
@@ -286,11 +312,30 @@ def write_yaml(file_path, dict_obj):
         yaml.dump(data=dict_obj, stream=f, allow_unicode=True)
 
 
+def check_file_remove(file_path):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    else:
+        pass
+
+
 @app.post("/stop_job")
 def stop_jobs(job: JobsName):
-    status = Status()
-    job_status = status.get_job(job.name)
-    return {"code": 200, "message": "not implement"}
+    check_file_remove("./status_file/{}-pid.json".format(job.name))
+    check_file_remove("./status_file/{}.json".format(job.name))
+    # if job_pid is None:
+    #    return {"code": 200, "message": "no such job name %s" % job.name}
+    # try:
+    #    os.kill(int(job_pid), signal.SIGKILL)
+    #    check_file_remove("./status_file/{}-pid.json".format(job.name))
+    #    check_file_remove("./status_file/{}.json".format(job.name))
+    #    logger.info("stop job %s: %s success" % (job.name, job_pid))
+    # except OSError:
+    #    logger.info("stop job %s: %s success" % (job.name, job_pid))
+    # except Exception as e:
+    #    logger.error("stop job %s: %s failed: %s" % (job.name, job_pid, str(e)))
+    #    return {"code": 502, "message": str(e)}
+    return {"code": 200, "message": "kill success"}
 
 
 @app.post("/get_job_status/")
@@ -309,11 +354,14 @@ def get_job_status(job: JobsName):
     return {"code": code, "message": "success", "name": job.name, "data": res, "err": err}
 
 
-def return_cmd(file_name, flag, install_dir, start_line):
+def return_cmd(file_name, flag, install_dir, start_line, last_line):
     if file_name == "":
         cmd = "ls %s/log/%s/" % (install_dir, flag)
     else:
-        cmd = "sed -n '%s,$p' %s/log/%s/%s" % (start_line, install_dir, flag, file_name)
+        if last_line == 0:
+            cmd = "cat -n %s/log/%s/%s | sed -n '%s,$p' " % (install_dir, flag, file_name, start_line)
+        else:
+            cmd = "cat -n %s/log/%s/%s | tail -%s " % (install_dir, flag, file_name, last_line)
     return cmd
 
 
@@ -329,14 +377,13 @@ def run_cmd(task_dict):
             task_dict["host"][0]["password"]
         )
 
-    # obj = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
     obj = subprocess.run(cmd_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
 
     res_data["data"] = obj.stdout if obj.returncode == 0 else obj.stderr
     return res_data
 
 
-def get_log(job_id, job_name, task_name, file_name, start_num):
+def get_log(job_id, job_name, task_name, file_name, start_num, last_line):
     pwd = os.path.abspath(os.curdir)
     job_file = "./log/" + str(job_id)
     if not os.path.exists(job_file):
@@ -345,12 +392,12 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
         log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
 
     if log_info.get(job_name) is None:
-        return {"code": 502, "message": "step: %s no find, pelase check" % job_name}
+        return {"code": 502, "message": "step: %s no find, please check" % job_name}
 
     if log_info["host"].get(log_info[job_name]) or log_info[job_name] == "local":
         host = ["local"] if log_info[job_name] == "local" else [log_info["host"].get(log_info[job_name])[0]]
     else:
-        return {"code": 502, "message": "step: %s no set host, pelase check" % job_name}
+        return {"code": 502, "message": "step: %s no set host, please check" % job_name}
 
     task = {
         "title": task_name,
@@ -364,16 +411,19 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
     }
 
     if job_name == "1. prepare material":
-        task["cmd"] = "sed -n '%s,$p' %s/nohup.out" % (start_num, pwd)
+        if last_line ==0:
+            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+        else:
+            task["cmd"] = "cat -n %s/nohup.out| tail -%s " % (pwd, last_line)
     elif job_name == "2. install":
         if task_name == "2.1 pre init check":
-            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "2.2. init":
-            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "2.3. pre install check":
-            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "2.4 install":
-            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num, last_line)
         else:
             return {"code": 502, "message": "no support %s" % task_name}
 
@@ -382,18 +432,15 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
             task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num)
         else:
             return {"code": 502, "message": "no support %s" % task_name}
-
     else:
-        return {"code": 502, "message": "no support %s" % job_name}
+        task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
 
     return run_cmd(task)
 
 
 @app.post("/get_job_log")
 def get_job_log(log: JobLog):
-    result = get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line)
-
-    return result
+    return get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line, log.last_line)
 
 
 @app.post("/init_job_status/")
@@ -403,15 +450,5 @@ def init_job_status(job: JobsName):
     else:
         return {"code": 200, "message": "success"}
 
-
-@app.get("/history/")
-def history():
-    res = []
-    for root1, dirs, files in os.walk('./status_file/'):
-        res = [re.sub('.json', '', i) for i in files]
-    return {"code": 200, "message": "success", "data": res}
-
-
-#if __name__ == "__main__":
-#    uvicorn.run("main:app", host="0.0.0.0", port=61234)
-
+# if __name__ == "__main__":
+#    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
