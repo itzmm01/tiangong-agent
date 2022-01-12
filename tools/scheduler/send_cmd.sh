@@ -3,7 +3,7 @@
 exec expect -- "$0" ${1+"$@"}
 
 ###################################################
-#  用法: 脚本名 -i IP.地址 -p 密码 -t 超时时间 -P 端口 -c 具体命令
+#  用法: 脚本名 -i IP.地址 -p 密码 -t 超时时间 -P 端口 -b 是否开启后台运行模式 y/n -c 具体命令
 ###################################################
 #  功能描述：
 #  1:在远端的服务器上执行命令(使用-m ssh-cmd);
@@ -23,6 +23,7 @@ set timeout  120
 set password ""
 set host ""
 set command ""
+set background "n"
 
 
 ###############################################
@@ -37,6 +38,7 @@ proc help {} {
     send_user "    -p <password>     Password.\n"
     send_user "    -t <timeout>      Timeout. Default = 120\n"
     send_user "    -c <command>      Ssh Command\n"
+    send_user "    -b <background>   Whether run in background, y/n, n as default\n"
     send_user "Sample:\n"
     send_user "$argv0 -i 127.0.0.1 -p pass -t 5 -m ssh-cmd -c ifconfig\n"
 }
@@ -79,7 +81,10 @@ while {[llength $argv]>0} {
     } "-c" {
         set command [lindex $argv 1]
         set argv [lrange $argv 2 end]
-    } "-v" {
+    } "-b" {
+        set background [lindex $argv 1]
+        set argv [lrange $argv 2 end]
+    }  "-v" {
         send_user "Ver: 1.0.0.0\n"
         exit 0
     } "-h" {
@@ -101,7 +106,12 @@ if {"$host" == ""} {
 if {"$command" == ""} {
     errlog "command is null" "yes" "1"
 }
-spawn ssh -oServerAliveInterval=60 -oStrictHostKeyChecking=no -oVerifyHostKeyDNS=yes -oUserKnownHostsFile=/dev/null -t -p $port $user@$host "$command"
+
+if {"$background" == "y"} {
+    spawn ssh -oServerAliveInterval=60 -oStrictHostKeyChecking=no -oVerifyHostKeyDNS=yes -oUserKnownHostsFile=/dev/null -t -p $port $user@$host "$command"
+} else {
+    spawn ssh -oServerAliveInterval=60 -oStrictHostKeyChecking=no -oVerifyHostKeyDNS=yes -oUserKnownHostsFile=/dev/null -p $port $user@$host "$command"
+}
 
 #命令执行结果
 expect {
