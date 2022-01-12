@@ -375,20 +375,6 @@ def run_cmd(task_dict):
 
 def get_log(job_id, job_name, task_name, file_name, start_num):
     pwd = os.path.abspath(os.curdir)
-    job_file = "./log/" + str(job_id)
-    if not os.path.exists(job_file):
-        return {"code": 502, "message": "no such job %s" % job_id}
-    with open(job_file, encoding="utf-8", mode="r") as f1:
-        log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
-
-    if log_info.get(job_name) is None:
-        return {"code": 502, "message": "step: %s no find, please check" % job_name}
-
-    if log_info["host"].get(log_info[job_name]) or log_info[job_name] == "local":
-        host = ["local"] if log_info[job_name] == "local" else [log_info["host"].get(log_info[job_name])[0]]
-    else:
-        return {"code": 502, "message": "step: %s no set host, please check" % job_name}
-
     task = {
         "title": task_name,
         "name": task_name,
@@ -397,12 +383,22 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
         "time_out": 3600,
         "checked": True,
         "key": task_name,
-        "host": host
+        "host": ["local"]
     }
-
     if job_name == "1. prepare material":
         task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
-    elif job_name == "2. install":
+    elif job_name == "2. install" or job_name == "3. uninstall":
+        job_file = "./log/" + str(job_id)
+        if not os.path.exists(job_file):
+            return {"code": 502, "message": "no such job %s" % job_id}
+        with open(job_file, encoding="utf-8", mode="r") as f1:
+            log_info = yaml.load(f1.read(), Loader=yaml.SafeLoader)
+        if log_info.get(job_name) is None:
+            return {"code": 502, "message": "step: %s no find, please check" % job_name}
+        if log_info["host"].get(log_info[job_name]) or log_info[job_name] == "local":
+            task["host"] = ["local"] if log_info[job_name] == "local" else [log_info["host"].get(log_info[job_name])[0]]
+        else:
+            return {"code": 502, "message": "step: %s no set host, please check" % job_name}
         if task_name == "2.1 pre init check":
             task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num)
         elif task_name == "2.2. init":
@@ -411,11 +407,7 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
             task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num)
         elif task_name == "2.4 install":
             task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num)
-        else:
-            return {"code": 502, "message": "no support %s" % task_name}
-
-    elif job_name == "3. uninstall":
-        if task_name == "3.1. task uninstall":
+        elif task_name == "3.1. task uninstall":
             task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num)
         else:
             return {"code": 502, "message": "no support %s" % task_name}
