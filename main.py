@@ -121,6 +121,7 @@ class JobsName(BaseModel):
 class JobLog(BaseModel):
     id: int
     start_line: int
+    last_line: int
     job_name: str
     task_name: str
     file_name: str
@@ -314,20 +315,19 @@ def stop_jobs(job: JobsName):
     status = Status()
     job_pid = status.get_pid(job.name)
     if job_pid is None:
-       return {"code": 200, "message": "no such job name %s" % job.name}
+        return {"code": 200, "message": "no such job name %s" % job.name}
     try:
-       os.kill(int(job_pid), signal.SIGKILL)
-       # os.killpg(int(job_pid), signal.SIGINT)
-       check_file_remove("./status_file/{}-pid.json".format(job.name))
-       check_file_remove("./status_file/{}.json".format(job.name))
-       logger.info("stop job %s: %s success" % (job.name, job_pid))
+        os.kill(int(job_pid), signal.SIGKILL)
+        check_file_remove("./status_file/{}-pid.json".format(job.name))
+        check_file_remove("./status_file/{}.json".format(job.name))
+        logger.info("stop job %s: %s success" % (job.name, job_pid))
     except OSError:
-       check_file_remove("./status_file/{}-pid.json".format(job.name))
-       check_file_remove("./status_file/{}.json".format(job.name))
-       logger.info("stop job %s: %s success" % (job.name, job_pid))
+        check_file_remove("./status_file/{}-pid.json".format(job.name))
+        check_file_remove("./status_file/{}.json".format(job.name))
+        logger.info("stop job %s: %s success" % (job.name, job_pid))
     except Exception as e:
-       logger.error("stop job %s: %s failed: %s" % (job.name, job_pid, str(e)))
-       return {"code": 502, "message": str(e)}
+        logger.error("stop job %s: %s failed: %s" % (job.name, job_pid, str(e)))
+        return {"code": 502, "message": str(e)}
     return {"code": 200, "message": "kill success"}
 
 
@@ -347,11 +347,13 @@ def get_job_status(job: JobsName):
     return {"code": code, "message": "success", "name": job.name, "data": res, "err": err}
 
 
-def return_cmd(file_name, flag, install_dir, start_line):
+def return_cmd(file_name, flag, install_dir, start_line, last_line):
     if file_name == "":
         cmd = "ls %s/log/%s/" % (install_dir, flag)
     else:
-        cmd = "cat -n %s/log/%s/%s | sed -n '%s,$p' " % (install_dir, flag, file_name, start_line)
+        cmd = "cat -n %s/log/%s/%s | sed -n '%s,$p' " % (
+            install_dir, flag, file_name, start_line) if last_line == 0 else "cat -n %s/log/%s/%s | tail -%s " % (
+            install_dir, flag, file_name, last_line)
     return cmd
 
 
@@ -373,7 +375,7 @@ def run_cmd(task_dict):
     return res_data
 
 
-def get_log(job_id, job_name, task_name, file_name, start_num):
+def get_log(job_id, job_name, task_name, file_name, start_num, last_line):
     pwd = os.path.abspath(os.curdir)
     task = {
         "title": task_name,
@@ -386,7 +388,10 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
         "host": ["local"]
     }
     if job_name == "1. prepare material":
-        task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+        if last_line == 0:
+            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+        else:
+            task["cmd"] = "cat -n %s/nohup.out| tail -%s " % (pwd, last_line)
     elif job_name == "2. install" or job_name == "3. uninstall":
         job_file = "./log/" + str(job_id)
         if not os.path.exists(job_file):
@@ -400,26 +405,29 @@ def get_log(job_id, job_name, task_name, file_name, start_num):
         else:
             return {"code": 502, "message": "step: %s no set host, please check" % job_name}
         if task_name == "2.1 pre init check":
-            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "2.2. init":
-            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "2.3. pre install check":
-            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "2.4 install":
-            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num, last_line)
         elif task_name == "3.1. task uninstall":
-            task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num)
+            task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num, last_line)
         else:
             return {"code": 502, "message": "no support %s" % task_name}
     else:
-        task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+        if last_line == 0:
+            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+        else:
+            task["cmd"] = "cat -n %s/nohup.out| tail -%s " % (pwd, last_line)
 
     return run_cmd(task)
 
 
 @app.post("/get_job_log")
 def get_job_log(log: JobLog):
-    return get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line)
+    return get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line, log.last_line)
 
 
 @app.post("/init_job_status/")
@@ -431,4 +439,3 @@ def init_job_status(job: JobsName):
 
 # if __name__ == "__main__":
 #    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
-
