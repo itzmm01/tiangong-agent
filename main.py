@@ -7,16 +7,11 @@ import re
 import signal
 import subprocess
 import sys
-import threading
-from multiprocessing import Process, Pool
-from multiprocessing.pool import ThreadPool
+from multiprocessing import Process
 from types import FrameType
 from typing import cast
-import asyncio
-
-import uvicorn
 import yaml
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import FastAPI
 from loguru import logger
 from pydantic import BaseModel
 
@@ -121,6 +116,7 @@ class JobsName(BaseModel):
 class JobLog(BaseModel):
     id: int
     start_line: int
+    end_line: str
     last_line: int
     job_name: str
     task_name: str
@@ -275,7 +271,7 @@ def run_job(status, jobs, job_status):
 
 
 @app.post("/submit_jobs/")
-def submit_jobs(job: Jobs, background_tasks: BackgroundTasks):
+def submit_jobs(job: Jobs):
     status = Status()
     job_status = status.init(job.name, job)
     write_yaml("./log/" + init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
@@ -347,12 +343,13 @@ def get_job_status(job: JobsName):
     return {"code": code, "message": "success", "name": job.name, "data": res, "err": err}
 
 
-def return_cmd(file_name, flag, install_dir, start_line, last_line):
+def return_cmd(file_name, flag, install_dir, start_line, last_line, end_line):
     if file_name == "":
         cmd = "ls %s/log/%s/" % (install_dir, flag)
     else:
-        cmd = "cat -n %s/log/%s/%s | sed -n '%s,$p' " % (
-            install_dir, flag, file_name, start_line) if last_line == 0 else "cat -n %s/log/%s/%s | tail -%s " % (
+        cmd = "cat -n %s/log/%s/%s | sed -n '%s,%sp' " % (
+            install_dir, flag, file_name, start_line,
+            end_line) if last_line == 0 else "cat -n %s/log/%s/%s | tail -%s " % (
             install_dir, flag, file_name, last_line)
     return cmd
 
@@ -375,7 +372,7 @@ def run_cmd(task_dict):
     return res_data
 
 
-def get_log(job_id, job_name, task_name, file_name, start_num, last_line):
+def get_log(job_id, job_name, task_name, file_name, start_num, last_line, end_line):
     pwd = os.path.abspath(os.curdir)
     task = {
         "title": task_name,
@@ -389,7 +386,7 @@ def get_log(job_id, job_name, task_name, file_name, start_num, last_line):
     }
     if job_name == "1. prepare material":
         if last_line == 0:
-            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,%sp' " % (pwd, start_num, end_line)
         else:
             task["cmd"] = "cat -n %s/nohup.out| tail -%s " % (pwd, last_line)
     elif job_name == "2. install" or job_name == "3. uninstall":
@@ -405,29 +402,32 @@ def get_log(job_id, job_name, task_name, file_name, start_num, last_line):
         else:
             return {"code": 502, "message": "step: %s no set host, please check" % job_name}
         if task_name == "2.1 pre init check":
-            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num, last_line)
+            task["cmd"] = return_cmd(file_name, "pre-init-check", log_info["INSTALL_DIR"], start_num, last_line,
+                                     end_line)
         elif task_name == "2.2. init":
-            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num, last_line)
+            task["cmd"] = return_cmd(file_name, "init", log_info["INSTALL_DIR"], start_num, last_line, end_line)
         elif task_name == "2.3. pre install check":
-            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num, last_line)
+            task["cmd"] = return_cmd(file_name, "pre-install-check", log_info["INSTALL_DIR"], start_num, last_line,
+                                     end_line)
         elif task_name == "2.4 install":
-            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num, last_line)
+            task["cmd"] = return_cmd(file_name, "install", log_info["INSTALL_DIR"], start_num, last_line, end_line)
         elif task_name == "3.1. task uninstall":
-            task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num, last_line)
+            task["cmd"] = return_cmd(file_name, "uninstall", log_info["INSTALL_DIR"], start_num, last_line, end_line)
         else:
             return {"code": 502, "message": "no support %s" % task_name}
     else:
         if last_line == 0:
-            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,$p' " % (pwd, start_num)
+            task["cmd"] = "cat -n %s/nohup.out| sed -n '%s,%sp' " % (pwd, start_num, end_line)
         else:
             task["cmd"] = "cat -n %s/nohup.out| tail -%s " % (pwd, last_line)
 
+    # logger.info(task["cmd"])
     return run_cmd(task)
 
 
 @app.post("/get_job_log")
 def get_job_log(log: JobLog):
-    return get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line, log.last_line)
+    return get_log(log.id, log.job_name, log.task_name, log.file_name, log.start_line, log.last_line, log.end_line)
 
 
 @app.post("/init_job_status/")
