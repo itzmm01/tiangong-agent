@@ -22,12 +22,12 @@ echo """#!/bin/bash
 
 start(){
     cd $home_dir
-    nohup ./Miniconda3/bin/uvicorn main:app --host 0.0.0.0 --port $port > $home_dir/nohup.out 2>&1 &
+    nohup ./Miniconda3/bin/uvicorn main:app --host 0.0.0.0 --port $port --no-access-log >> $home_dir/nohup.out 2>&1 &
 
 }
 
 stop(){
-    ps -ef | grep $home_dir/main.py | grep -v "grep" | awk '{print \$2}' | xargs -i kill -9 {}
+    ps -ef | grep './Miniconda3/bin/uvicorn' | grep -v "grep" | awk '{print \$2}' | xargs -i kill -9 {}
 
 }
 
@@ -62,6 +62,7 @@ WantedBy=multi-user.target
 """ > /usr/lib/systemd/system/${name}.service
 
 systemctl daemon-reload 
+systemctl enable ${name} --now
 systemctl restart ${name}
 systemctl status ${name}
-cat nohup.out
+cat $home_dir/nohup.out
