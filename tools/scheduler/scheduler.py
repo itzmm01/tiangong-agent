@@ -643,7 +643,7 @@ def call_proc(cmd_str, task_info, cmd_item, result_queue):
                     and not print_str.startswith("Permission denied") \
                     and not print_str.startswith("Connection to") \
                     and "password:" not in print_str:
-                TASK_LOGGER.info(print_str)
+                # TASK_LOGGER.info(print_str)
                 print_out_lines.append(print_str)
                 if print_log and print_result:
                     PRINT_LOGGER.info(print_str)
