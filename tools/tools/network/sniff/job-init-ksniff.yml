@@ -1,7 +1,0 @@
-- job:
-    name: "init ksniff"
-    host: local
-    tasks:
-      - name: 'unzip and make install ksniff'
-        type: command
-        cmd: "cd ${SETUP_TOOLS_DIR}/tools/network/sniff/dependencies/ && unzip ${KSNIFF_ZIP_FILE_NAME} && cd ksniff && make install"
