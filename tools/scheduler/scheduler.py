@@ -72,11 +72,13 @@ class Constants(object):
 class LogUtils(object):
     # colorify status code for PRINT_LOGGER
     LOG_INFO_OK = "\033[0;32mok\033[0m"
+    LOG_INFO_RUNNING = "\033[0;32mRunning\033[0m"
     LOG_INFO_ERR = "\033[0;31merror\033[0m"
     LOG_INFO_WARN_SKIPPED = "\033[0;33mSkipped\033[0m"
 
     @staticmethod
-    def setup_file_logger(logger, log_file, log_level=logging.INFO, handler_level=logging.DEBUG, fmt="%(message)s"):
+    def setup_file_logger(logger, log_file, log_level=logging.INFO, handler_level=logging.DEBUG,
+                          fmt="%(processName)s - %(message)s"):
         logger.setLevel(log_level)
         file_handler = logging.handlers.RotatingFileHandler(filename=log_file, mode='w', maxBytes=1024 * 1024 * 50,
                                                             backupCount=5)
@@ -617,14 +619,74 @@ def call_proc(cmd_str, task_info, cmd_item, result_queue):
     try:
         sub_process = subprocess.Popen(cmd_str, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT)
-        out, err = sub_process.communicate()
-        return_code = sub_process.returncode
-        result_queue.put([CommonUtils.bytes2str(out), err, return_code, task_info, cmd_item])
+        TASK_LOGGER.info("--------------------------------------------------")
+        exit_code = 0
+        host_location_name = task_info.get("host_location_name")
+        host = task_info.get("host")
+        register = task_info.get("register")
+        print_log = task_info.get("print_log")
+        print_result = task_info.get("print_result")
+        _task_name = task_info.get("task_name")
+        _is_check_ready = task_info.get("is_check_ready")
+        print_out_lines = []
+        if _task_name:
+            TASK_LOGGER.info("task [%s] execute on host: %s" % (_task_name, str(host_location_name)))
+        else:
+            TASK_LOGGER.info("task execute on host: " + str(host_location_name))
+
+        for line in iter(sub_process.stdout.readline, b''):
+            line = CommonUtils.bytes2str(line)
+            print_str = str.strip(line)
+            if print_str and not "spawn ssh" in print_str and not print_str.startswith(
+                    "Warning") and not print_str.startswith("Password:") \
+                    and not print_str.startswith("Authorized") \
+                    and not print_str.startswith("Permission denied") \
+                    and not print_str.startswith("Connection to") \
+                    and "password:" not in print_str:
+                # TASK_LOGGER.info(print_str)
+                print_out_lines.append(print_str)
+                if print_log and print_result:
+                    PRINT_LOGGER.info(print_str)
+
+        sub_process.stdout.close()
+        sub_process.wait()
+        if register:
+            register_host = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
+            register_key = "%s@%s" % (register, register_host)
+            TASK_LOGGER.info("register param: " + register_key + " : " + str(print_out_lines[-1]))
+            PARAM_DATA[register_key] = print_out_lines[-1]
+            register_value = CommonUtils.str_to_float(print_out_lines[-1])
+            PARAM_DATA.setdefault(register, [])
+            if register_value:
+                PARAM_DATA[register].append(register_value)
+
+        if print_log:
+            # stdout already print out lively, make print_out_lines empty to avoid printing those logs again.
+            print_out_lines = []
+            param_item_info = cmd_item.get('param_item', [])
+            key_list = cmd_item.get('key_list', [])
+            param_item = ParamReplaceHandler.generate_param_item(key_list, param_item_info)
+            LogUtils.execute_command_print_log(sub_process.returncode, host_location_name, print_out_lines,
+                                               print_result,
+                                               param_item=",".join(param_item))
+        if not sub_process.returncode == 0:
+            TASK_LOGGER.info("task [%s] execute on host: %s %s"
+                             % (_task_name, str(host_location_name), LogUtils.LOG_INFO_ERR))
+            # if check ready failed, mark it as unready and will be skipped when do any other tasks.
+            if _is_check_ready:
+                UNREADY_HOSTS.append(host_location_name)
+            exit_code = 1
+        else:
+            TASK_LOGGER.info("task [%s] execute on host: %s %s"
+                             % (_task_name, str(host_location_name), LogUtils.LOG_INFO_OK))
+        TASK_LOGGER.info("--------------------------------------------------")
+
+        result_queue.put(exit_code)
     # pylint: disable=broad-except
     except Exception as err:
         print(err)
         LOGGER.exception(err)
-        result_queue.put([CommonUtils.bytes2str(""), err, 1, task_info, cmd_item])
+        result_queue.put(1)
 
 
 class Executor(object):
@@ -691,58 +753,8 @@ class Executor(object):
         while True:
             if result_count >= task_len:
                 break
-            out, _, sub_process_return_code, task_info, cmd_item = result_queue.get()
-            host_location_name = task_info.get("host_location_name")
-            host = task_info.get("host")
-            register = task_info.get("register")
-            print_log = task_info.get("print_log")
-            print_result = task_info.get("print_result")
-            _task_name = task_info.get("task_name")
-            _is_check_ready = task_info.get("is_check_ready")
-            print_out_lines = []
-            TASK_LOGGER.info("--------------------------------------------------")
-            if _task_name:
-                TASK_LOGGER.info("task [%s] execute on host: %s" % (_task_name, str(host_location_name)))
-            else:
-                TASK_LOGGER.info("task execute on host: " + str(host_location_name))
-            for line in out.split(os.linesep):
-                print_str = str.strip(line)
-                if print_str and not "spawn ssh" in print_str and not print_str.startswith(
-                        "Warning") and not print_str.startswith("Password:") \
-                        and not print_str.startswith("Authorized") \
-                        and not print_str.startswith("Permission denied") \
-                        and not print_str.startswith("Connection to") \
-                        and "password:" not in print_str:
-                    TASK_LOGGER.info(print_str)
-                    print_out_lines.append(print_str)
-            if register:
-                register_host = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
-                register_key = "%s@%s" % (register, register_host)
-                TASK_LOGGER.info("register param: " + register_key + " : " + str(print_out_lines[-1]))
-                PARAM_DATA[register_key] = print_out_lines[-1]
-                register_value = CommonUtils.str_to_float(print_out_lines[-1])
-                PARAM_DATA.setdefault(register, [])
-                if register_value:
-                    PARAM_DATA[register].append(register_value)
-
-            if print_log:
-                param_item_info = cmd_item.get('param_item', [])
-                key_list = cmd_item.get('key_list', [])
-                param_item = ParamReplaceHandler.generate_param_item(key_list, param_item_info)
-                LogUtils.execute_command_print_log(sub_process_return_code, host_location_name, print_out_lines,
-                                                   print_result,
-                                                   param_item=",".join(param_item))
-            if not sub_process_return_code == 0:
-                TASK_LOGGER.info("task [%s] execute on host: %s %s"
-                                 % (_task_name, str(host_location_name), LogUtils.LOG_INFO_ERR))
-                # if check ready failed, mark it as unready and will be skipped when do any other tasks.
-                if _is_check_ready:
-                    UNREADY_HOSTS.append(host_location_name)
+            if result_queue.get() == 1:
                 exit_code = 1
-            else:
-                TASK_LOGGER.info("task [%s] execute on host: %s %s"
-                                 % (_task_name, str(host_location_name), LogUtils.LOG_INFO_OK))
-            TASK_LOGGER.info("--------------------------------------------------")
             result_count += 1
         return exit_code
 
@@ -778,6 +790,18 @@ class CmdTask(Task):
         else:
             cmd_list.append({"cmd": replace_param_cmd, "param_item": replace_info_item, "key_list": key_list})
 
+    def __generate_param_item(self, param):
+        param_item = {}
+        if isinstance(param, dict):
+            for key, value in param.items():
+                param_item[str(self.with_items + "." + key)] = value
+        elif isinstance(param, str) or isinstance(param, (int, float)):
+            param_item[str(self.with_items)] = str(param)
+        else:
+            TASK_LOGGER.info("unsupported param type %s, only support dict or str or number." % (type(param)))
+
+        return param_item
+
     def parse_with_items(self, host, cmd, cmd_list, job_items, param_data, replace_info=None, key_list=None):
         _ip = Constants.LOCAL_HOST if host == Constants.LOCAL_HOST else host["ip"]
         _ip_with_items = self.with_items + "@" + _ip
@@ -804,14 +828,16 @@ class CmdTask(Task):
             for param in item_params:
                 replace_info_item = {}
                 replace_info_item.update(replace_info)
-                param_item = {}
-                for key, value in param.items():
-                    param_item[str(self.with_items + "." + key)] = value
+                param_item = self.__generate_param_item(param)
                 # update task param_item by job_items
                 # if job and task have the same key, will use the value defined in job
                 if job_items:
                     param_item.update(job_items)
+                # if elements of with_items are not dict type, param_item has the same key with param_data,
+                # and we should use the key-value in param_item firstly
                 replace_param_cmd = ParamReplaceHandler.replace_param(cmd, param_item, replace_info_item)
+                replace_param_cmd = ParamReplaceHandler.replace_param(replace_param_cmd, param_data, replace_info_item)
+                PRINT_LOGGER.info("replace_info_item: %s" % replace_info_item)
                 if self.item_condition:
                     replace_item_condition = ParamReplaceHandler.replace_param(self.item_condition, param_item)
                     replace_item_condition = replace_item_condition.replace("${IP}", _ip)
@@ -848,7 +874,6 @@ class CmdTask(Task):
                 replace_param_cmd = ParamReplaceHandler.replace_host_param(task_cmd, param_data,
                                                                            host["ip"], replace_info)
                 replace_param_cmd = ParamReplaceHandler.replace_key_words(replace_param_cmd, host, replace_info)
-                replace_param_cmd = ParamReplaceHandler.replace_param(replace_param_cmd, param_data, replace_info)
                 # single quote will make the cmd execute with wrong, replace them by '\''
                 replace_param_cmd = ParamReplaceHandler.replace_single_quote(replace_param_cmd)
                 cmd = Constants.CONTROLLER_SEND_CMD_TOOLS + " -i " + host["ip"] + " -P " + str(host["port"]) + " -u " \
@@ -864,6 +889,7 @@ class CmdTask(Task):
             if self.with_items:
                 self.parse_with_items(host, cmd, cmd_list, job_items, param_data, replace_info, sorted_replace_list)
             else:
+                cmd = ParamReplaceHandler.replace_param(cmd, param_data, replace_info)
                 self.parse_task_single(host, cmd, cmd_list, job_items, param_data, replace_info, sorted_replace_list)
             task_info_list.append(
                 {"host_location_name": host_location_name, "cmd_list": cmd_list, "task_name": self.name,
@@ -1657,6 +1683,8 @@ if __name__ == '__main__':
         HOST_PARSER.parse()
         ALL_HOST = HOST_PARSER.all_hosts
         ALL_GROUP_HOST = HOST_PARSER.all_group_hosts
+        if "HOST" not in PARAM_DATA:
+            PARAM_DATA.update({"HOST": ALL_HOST})
     # do query host
     do_query_host()
     # modify sshd port
