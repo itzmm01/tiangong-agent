@@ -234,7 +234,7 @@ def run_job(status, jobs, job_status):
                 hosts = ["local"]
             else:
                 hosts = jobs.get('host').get(job["job"].get('host'))
-        if len(hosts) == 0:
+        if hosts is None or len(hosts) == 0:
             logger.error("not found host info")
             return
         for task in job['job'].get('tasks'):
