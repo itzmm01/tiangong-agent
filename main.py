@@ -274,6 +274,8 @@ def run_job(status, jobs, job_status):
 def submit_jobs(job: Jobs):
     status = Status()
     job_status = status.init(job.name, job)
+    with open("./status_file/%s.params" % job.name, "w") as f:
+        json.dump(job.dict(), f, ensure_ascii=False)
     write_yaml("./log/" + init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
     # background_tasks.add_task(run_job, status, job.dict(), job_status)
     p = Process(target=run_job, args=(status, job.dict(), job_status,))
@@ -436,6 +438,25 @@ def init_job_status(job: JobsName):
         return {"code": 200, "message": "no found job {}".format(job.name)}
     else:
         return {"code": 200, "message": "success"}
+
+
+@app.on_event("startup")
+def startup_event():
+    for file1 in os.listdir("./status_file/"):
+        if ".params" in file1:
+            logger.info("Scan to task file: %s" % file1)
+            status = Status()
+            with open("./status_file/%s" % file1, "r") as f1:
+                job = json.load(f1)
+            file_name = file1.split('.params')[0]
+            with open("./status_file/%s.json" % file_name, "r") as f2:
+                job_status = json.load(f2)
+            write_yaml("./log/" + init_log_info(job)["file_name"], init_log_info(job))
+            p = Process(target=run_job, args=(status, job, job_status,))
+            p.start()
+        else:
+            logger.info("skip file %s" % file1)
+
 
 # if __name__ == "__main__":
 #    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
