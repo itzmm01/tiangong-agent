@@ -242,11 +242,11 @@ def run_job(status, jobs, job_status):
             start_time = time.time()
 
             if job_status[task_name] == 200:
-                logger.info("job {}: {} is already complete...".format(jobs.get("name"), task_name))
+                logger.info("job {}: {} is already complete, skip...".format(jobs.get("name"), task_name))
                 status.set_status(jobs.get("name"), "err", "")
-            elif job_status[task_name] == 1:
-                logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
-                status.set_status(jobs.get("name"), "err", "")
+            # elif job_status[task_name] == 1:
+            #     logger.info("job {}: {} is Running, skip...".format(jobs.get("name"), task_name))
+            #     status.set_status(jobs.get("name"), "err", "")
             else:
                 status.set_status(jobs.get("name"), task_name, 1)
                 if "task_own_log_file" not in task:
@@ -318,10 +318,12 @@ def stop_jobs(job: JobsName):
         os.kill(int(job_pid), signal.SIGKILL)
         check_file_remove("./status_file/{}-pid.json".format(job.name))
         check_file_remove("./status_file/{}.json".format(job.name))
+        check_file_remove("./status_file/{}.params".format(job.name))
         logger.info("stop job %s: %s success" % (job.name, job_pid))
     except OSError:
         check_file_remove("./status_file/{}-pid.json".format(job.name))
         check_file_remove("./status_file/{}.json".format(job.name))
+        check_file_remove("./status_file/{}.params".format(job.name))
         logger.info("stop job %s: %s success" % (job.name, job_pid))
     except Exception as e:
         logger.error("stop job %s: %s failed: %s" % (job.name, job_pid, str(e)))
@@ -449,9 +451,15 @@ def startup_event():
             with open("./status_file/%s" % file1, "r") as f1:
                 job = json.load(f1)
             file_name = file1.split('.params')[0]
-            with open("./status_file/%s.json" % file_name, "r") as f2:
+            status_file = "./status_file/%s.json" % file_name
+            if not os.path.exists(status_file):
+                return
+            with open(status_file, "r") as f2:
                 job_status = json.load(f2)
-            write_yaml("./log/" + init_log_info(job)["file_name"], init_log_info(job))
+            status_params_yaml = "./log/" + init_log_info(job)["file_name"]
+            if not os.path.exists(status_params_yaml):
+                return
+            write_yaml(status_params_yaml, init_log_info(job))
             p = Process(target=run_job, args=(status, job, job_status,))
             p.start()
         else:
