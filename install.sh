@@ -65,4 +65,3 @@ systemctl daemon-reload
 systemctl enable ${name} --now
 systemctl restart ${name}
 systemctl status ${name}
-cat $home_dir/nohup.out
