@@ -11,7 +11,7 @@ fi
 
 [ ! -d "./Miniconda3" ] && bash Miniconda3.sh -b -p ./Miniconda3 
 
-./Miniconda3/bin/pip3 install  --index-url  https://mirrors.aliyun.com/pypi/simple install -r ./requirements.txt
+./Miniconda3/bin/pip3 install  --index-url  https://mirrors.cloud.tencent.com/pypi/simple install -r ./requirements.txt
 
 [ $? -ne 0 ] && echo "pip3 install fail, please check network"
 
@@ -65,4 +65,3 @@ systemctl daemon-reload
 systemctl enable ${name} --now
 systemctl restart ${name}
 systemctl status ${name}
-cat $home_dir/nohup.out

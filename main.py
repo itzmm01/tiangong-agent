@@ -234,7 +234,7 @@ def run_job(status, jobs, job_status):
                 hosts = ["local"]
             else:
                 hosts = jobs.get('host').get(job["job"].get('host'))
-        if len(hosts) == 0:
+        if hosts is None or len(hosts) == 0:
             logger.error("not found host info")
             return
         for task in job['job'].get('tasks'):
@@ -242,11 +242,11 @@ def run_job(status, jobs, job_status):
             start_time = time.time()
 
             if job_status[task_name] == 200:
-                logger.info("job {}: {} is already complete...".format(jobs.get("name"), task_name))
+                logger.info("job {}: {} is already complete, skip...".format(jobs.get("name"), task_name))
                 status.set_status(jobs.get("name"), "err", "")
-            elif job_status[task_name] == 1:
-                logger.info("job {}: {} is Running...".format(jobs.get("name"), task_name))
-                status.set_status(jobs.get("name"), "err", "")
+            # elif job_status[task_name] == 1:
+            #     logger.info("job {}: {} is Running, skip...".format(jobs.get("name"), task_name))
+            #     status.set_status(jobs.get("name"), "err", "")
             else:
                 status.set_status(jobs.get("name"), task_name, 1)
                 if "task_own_log_file" not in task:
@@ -274,6 +274,8 @@ def run_job(status, jobs, job_status):
 def submit_jobs(job: Jobs):
     status = Status()
     job_status = status.init(job.name, job)
+    with open("./status_file/%s.params" % job.name, "w") as f:
+        json.dump(job.dict(), f, ensure_ascii=False)
     write_yaml("./log/" + init_log_info(job.dict())["file_name"], init_log_info(job.dict()))
     # background_tasks.add_task(run_job, status, job.dict(), job_status)
     p = Process(target=run_job, args=(status, job.dict(), job_status,))
@@ -316,10 +318,12 @@ def stop_jobs(job: JobsName):
         os.kill(int(job_pid), signal.SIGKILL)
         check_file_remove("./status_file/{}-pid.json".format(job.name))
         check_file_remove("./status_file/{}.json".format(job.name))
+        check_file_remove("./status_file/{}.params".format(job.name))
         logger.info("stop job %s: %s success" % (job.name, job_pid))
     except OSError:
         check_file_remove("./status_file/{}-pid.json".format(job.name))
         check_file_remove("./status_file/{}.json".format(job.name))
+        check_file_remove("./status_file/{}.params".format(job.name))
         logger.info("stop job %s: %s success" % (job.name, job_pid))
     except Exception as e:
         logger.error("stop job %s: %s failed: %s" % (job.name, job_pid, str(e)))
@@ -436,6 +440,31 @@ def init_job_status(job: JobsName):
         return {"code": 200, "message": "no found job {}".format(job.name)}
     else:
         return {"code": 200, "message": "success"}
+
+
+@app.on_event("startup")
+def startup_event():
+    for file1 in os.listdir("./status_file/"):
+        if ".params" in file1:
+            logger.info("Scan to task file: %s" % file1)
+            status = Status()
+            with open("./status_file/%s" % file1, "r") as f1:
+                job = json.load(f1)
+            file_name = file1.split('.params')[0]
+            status_file = "./status_file/%s.json" % file_name
+            if not os.path.exists(status_file):
+                return
+            with open(status_file, "r") as f2:
+                job_status = json.load(f2)
+            status_params_yaml = "./log/" + init_log_info(job)["file_name"]
+            if not os.path.exists(status_params_yaml):
+                return
+            write_yaml(status_params_yaml, init_log_info(job))
+            p = Process(target=run_job, args=(status, job, job_status,))
+            p.start()
+        else:
+            logger.info("skip file %s" % file1)
+
 
 # if __name__ == "__main__":
 #    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
