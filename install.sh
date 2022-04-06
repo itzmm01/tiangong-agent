@@ -60,7 +60,7 @@ ExecStop=$home_dir/agent.sh stop
 WantedBy=multi-user.target
 
 """ > /usr/lib/systemd/system/${name}.service
-
+rm -rf $home_dir/status_file/*
 systemctl daemon-reload 
 systemctl enable ${name} --now
 systemctl restart ${name}
