@@ -14,6 +14,8 @@ import yaml
 from fastapi import FastAPI
 from loguru import logger
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+
 
 from tools.scheduler import scheduler
 import time
@@ -89,6 +91,15 @@ access_log = False
 
 app = FastAPI(
     access_log=access_log,
+)
+app.add_middleware(
+	CORSMiddleware,
+	# 允许跨域的源列表，例如 ["http://www.example.org"] 等等，["*"] 表示允许任何源
+	allow_origins=["http://localhost:3006", "http://www.tonyandmoney.cn", "https://www.tonyandmoney.cn"],
+	# 跨域请求是否支持 cookie 如果为 True，allow_origins 必须为具体的源，不可以是 ["*"]
+	allow_credentials=True,
+	allow_methods=["*"],
+	allow_headers=["*"],
 )
 
 
