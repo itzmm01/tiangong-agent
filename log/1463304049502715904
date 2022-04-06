@@ -1,0 +1,22 @@
+1. prepare material: local
+2. install: local
+INSTALL_DIR: /home/MySQL-one-deploy
+file_name: '1463304049502715904'
+host:
+  ALL_HOST:
+  - ip: 10.10.0.1
+    password: Iloveqianhui1314@
+    port: 22
+    user: root
+  client:
+  - ip: 10.10.0.1
+    password: Iloveqianhui1314@
+    port: 22
+    user: root
+  mysqld:
+  - ip: 10.10.0.1
+    password: Iloveqianhui1314@
+    port: 22
+    user: root
+name: MySQL_8.0.27_0
+prepare env: local

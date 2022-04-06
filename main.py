@@ -10,8 +10,11 @@ import sys
 from multiprocessing import Process
 from types import FrameType
 from typing import cast
+
+import uvicorn
 import yaml
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from pydantic import BaseModel
 
@@ -90,6 +93,12 @@ access_log = False
 app = FastAPI(
     access_log=access_log,
 )
+
+app.add_middleware(CORSMiddleware,
+                   allow_origins=["http://localhost:3006", "http://www.tonyandmoney.cn", "https://www.tonyandmoney.cn"],
+                   allow_credentials=True,
+                   allow_methods=["OPTIONS", "GET", "POST", "PUT"],
+                   allow_headers=["*"], )
 
 
 @app.get("/")
@@ -466,5 +475,5 @@ def startup_event():
             logger.info("skip file %s" % file1)
 
 
-# if __name__ == "__main__":
-#    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
