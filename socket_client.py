@@ -9,6 +9,7 @@ http_session = requests.Session()
 
 http_session.mount('https://', HTTPAdapter(max_retries=1000))
 http_session.mount('http://', HTTPAdapter(max_retries=1000))
+
 sio = socketio.Client(reconnection_delay=5000,
                       reconnection_delay_max=10000,
                       reconnection_attempts=0,

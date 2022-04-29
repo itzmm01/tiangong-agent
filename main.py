@@ -69,7 +69,7 @@ def startup_event():
     for file1 in os.listdir("./status_file/"):
         if ".params" in file1:
             logger.info("Scan to task file: %s" % file1)
-            status = Status()
+            status = deploy.Status()
             with open("./status_file/%s" % file1, "r") as f1:
                 job = json.load(f1)
             file_name = file1.split('.params')[0]
@@ -89,3 +89,4 @@ def startup_event():
 
 # if __name__ == "__main__":
 #    uvicorn.run("main:app", host="0.0.0.0", port=61234, access_log=access_log)
+
