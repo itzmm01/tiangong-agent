@@ -2,3 +2,5 @@
 .idea/
 /status_file/*.json
 /status_file/*.params
+/venv
+/log
