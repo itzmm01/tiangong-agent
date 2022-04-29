@@ -108,9 +108,10 @@ def on_get_log(params: dict):
 
 
 @sio.on('health')
-def on_health():
+def on_health(data):
     """
     健康检查
+    :params:data 参数必须要，不然会报错
     :return: 200 表示 ok了
     """
     return 200

@@ -66,6 +66,8 @@ def init_job_status(job: JobsName):
 def startup_event():
     socket_client.startup()
     logger.info("socket client startup....")
+    if os.path.exists("./status_file") is not True:
+        os.mkdir("./status_file")
     for file1 in os.listdir("./status_file/"):
         if ".params" in file1:
             logger.info("Scan to task file: %s" % file1)
