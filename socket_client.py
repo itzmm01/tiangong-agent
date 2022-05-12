@@ -4,6 +4,7 @@ from deploy import Jobs, JobLog, JobsName
 import requests
 from requests.adapters import HTTPAdapter
 from loguru import logger
+from multiprocessing import Process
 
 http_session = requests.Session()
 
@@ -153,11 +154,12 @@ def startup():
 
             line = file.readline()
 
-        # p = Process(target=deploy.run_job, args=(status, job, job_status,))
-        # p.start()
-
         file.close()
-        sio.start_background_task(target=connect_srv, host=socket_host, code=socket_token, path=socket_path)
+        p = Process(target=connect_srv, args=(socket_host, socket_token, socket_path,))
+        # p.daemon = True
+        p.start()
+
+        # sio.start_background_task(target=connect_srv, host=socket_host, code=socket_token, path=socket_path)
         logger.info("web socket start end")
 
     except Exception as e:
