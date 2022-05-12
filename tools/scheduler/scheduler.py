@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 import argparse
 import copy
+import csv
 import hashlib
 import binascii
 import importlib
@@ -31,6 +32,7 @@ REAL_PATH = os.path.realpath(FILE_PATH)
 CURRENT_PATH = os.path.dirname(REAL_PATH)
 LOG_JOB_DIR = CURRENT_PATH
 ENV_DICT = os.environ
+result_status = []
 
 
 class Constants(object):
@@ -46,6 +48,7 @@ class Constants(object):
     STR_TIME_STAMP = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(LOCAL_TIME_STAMP))
     LOG_SCHEDULER_FILE = CURRENT_PATH + '/scheduler.log.' + STR_TIME_STAMP
     LOG_JOB_FILE = CURRENT_PATH + '/job.log.' + STR_TIME_STAMP
+    LOG_CSV_FILE = "%s/%s-%s" % (CURRENT_PATH, STR_TIME_STAMP, 'result.csv')
     LOG_SUMMARY_FILE = CURRENT_PATH + '/summary.log.' + STR_TIME_STAMP
 
     RECOVERY_FILE = "/tmp/recovery_log"
@@ -60,6 +63,12 @@ class Constants(object):
     TASK_NAME_SEND_COMMAND = "send_command"
     TASK_NAME_SEND_SOURCE_FILE = "send_source_file"
     TASK_NAME_EXECUTE_SCRIPT = "execute_script"
+    TASK_NAME_CHECK_HOST_READY = "Check host ready"
+    # CSV_LOGGER ignore
+    CSV_LOG_IGNORE_TASKS = [TASK_NAME_SEND_COMMAND,
+                            TASK_NAME_SEND_SOURCE_FILE,
+                            TASK_NAME_EXECUTE_SCRIPT,
+                            TASK_NAME_CHECK_HOST_READY]
 
     IP_SECTION_REGEX = re.compile(r'^(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)'
                                   r'{3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])'
@@ -68,13 +77,26 @@ class Constants(object):
     IP_REGEX = re.compile(r'^(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)'
                           r'{3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
 
+    GLOBAL_VAR_KEY = "global"
+    GLOBAL_DEFAULT_USER = "root"
+    GLOBAL_DEFAULT_PORT = 22
+
 
 class LogUtils(object):
     # colorify status code for PRINT_LOGGER
     LOG_INFO_OK = "\033[0;32mok\033[0m"
-    LOG_INFO_RUNNING = "\033[0;32mRunning\033[0m"
     LOG_INFO_ERR = "\033[0;31merror\033[0m"
     LOG_INFO_WARN_SKIPPED = "\033[0;33mSkipped\033[0m"
+
+    @staticmethod
+    def get_log_file_name(param_data_key):
+        if param_data_key in PARAM_DATA:
+            if not CommonUtils.make_dirs(PARAM_DATA[param_data_key]):
+                PRINT_LOGGER.info("Path for logfile [%s] not exists." % PARAM_DATA[param_data_key])
+                sys.exit(1)
+            else:
+                return PARAM_DATA[param_data_key]
+        return None
 
     @staticmethod
     def setup_file_logger(logger, log_file, log_level=logging.INFO, handler_level=logging.DEBUG,
@@ -102,16 +124,157 @@ class LogUtils(object):
         param_log = ""
         if param_item:
             param_log = " (\033[1;34m%s\033[0m)" % param_item
+        # if print_result is True, print_out_lines already pint out lively
+        # only when print_result is False and return_code isn't 0, print them out here
         if sub_process_return_code == 0:
             PRINT_LOGGER.info("    %s: %s%s" % (host_location_name, LogUtils.LOG_INFO_OK, param_log))
-            if print_result and print_out_lines:
+            if print_result:
                 line = "\n".join(print_out_lines)
                 PRINT_LOGGER.info(line)
         else:
             PRINT_LOGGER.info("    %s: %s%s" % (host_location_name, LogUtils.LOG_INFO_ERR, param_log))
-            if print_out_lines:
+            if not print_result:
                 line = "\n".join(print_out_lines)
                 PRINT_LOGGER.info(line)
+
+    @staticmethod
+    def execute_command_csv_log(sub_process_return_code, task_info, print_out_lines):
+        host_location_name = task_info.get("host_location_name", "")
+        task_name = task_info.get("task_name", "")
+        print_result = task_info.get("print_result", False)
+        line = ""
+        if sub_process_return_code == 0:
+            status = "OK"
+            if print_result:
+                line = "\n".join(print_out_lines)
+        else:
+            status = "ERROR"
+            line = "\n".join(print_out_lines)
+        CSV_LOGGER.info('"%s",%s,%s,"%s","%s"' % (task_name, host_location_name, status, line, task_info.get("desc")))
+
+
+class CsvLogPrinter(object):
+
+    @staticmethod
+    def print_format(max_long, content, flag=None):
+        """
+        Complementary output
+        """
+        num = 0
+        if sys.version.split('.')[0] == "2":
+            for char in content.decode("utf-8"):
+                if u'\u4e00' <= char <= u'\u9fa5':
+                    num += 1
+            if flag:
+                return content.ljust(max_long + num, flag)
+            else:
+                return content.ljust(max_long + num)
+        else:
+            for char in content:
+                if '\u4e00' <= char <= '\u9fa5':
+                    num += 1
+            if flag:
+                return content.ljust(max_long - num, flag)
+            else:
+                return content.ljust(max_long - num)
+
+
+    @staticmethod
+    def len_cn_zh(value):
+        """
+        Statistical length in Chinese and English
+        """
+        num = 0
+        if sys.version.split('.')[0] == "2":
+            for char in value.decode("utf-8"):
+                if u'\u4e00' <= char <= u'\u9fa5':
+                    num += 2
+                else:
+                    num += 1
+        else:
+            for char in value:
+                if '\u4e00' <= char <= '\u9fa5':
+                    num += 2
+                else:
+                    num += 1
+        return num
+
+    @staticmethod
+    def csv_to_table(csv_path):
+        """
+        Read CSV Convert to Table Output
+        """
+        csv_obj = csv.reader(open(csv_path, 'r'))
+
+        title = ["TASK_NAME", "HOST", "STATUS", "LOGS", "DESC"]
+        csv_data = []
+        group_csv_data = {}
+        for line in csv_obj:
+            if len(line) > 2 and line[2] == "OK":
+                continue
+            if group_csv_data.get(line[0]):
+                host_list_str = group_csv_data[line[0]][1] + "\n" + line[1]
+                group_csv_data[line[0]][1] = host_list_str
+            else:
+                group_csv_data[line[0]] = line
+
+        for key in group_csv_data:
+            row_line = []
+            for row in group_csv_data[key]:
+                row_list = row.split("\n")
+                row_line.append(len(row_list))
+            for num in range(max(row_line)):
+                str1 = []
+                for row in group_csv_data[key]:
+                    row_list = row.split("\n")
+                    if len(row_list) > num:
+                        row_list_num = "" if '[INFO]' in row_list[num] else row_list[num]
+                        str1.append(row_list_num)
+                    else:
+                        str1.append("")
+
+                csv_data.append(str1)
+        # print(csv_data1)
+        table_data = []
+        max_long_list = []
+        for index, value in enumerate(title):
+            max_long_list.append(max([CsvLogPrinter.len_cn_zh(data[index]) for data in csv_data]))
+        division = "+"
+        header = "|"
+        for index, value in enumerate(max_long_list):
+            division += CsvLogPrinter.print_format(value, "", "-") + "-"
+            header += CsvLogPrinter.print_format(value, title[index]) + "|"
+
+        table_data.append(division)
+        table_data.append(header)
+        table_data.append(division)
+        log_color = {
+            "OK": "\033[0;32mOK\033[0m",
+            "ERROR": "\033[0;31mERROR\033[0m"
+        }
+        for data in csv_data:
+            content_line = "|"
+            early_return = False
+
+            for index, value in enumerate(max_long_list):
+                if data[index] == "TASK_NAME":
+                    early_return = True
+                    break
+                else:
+                    if data[index] == "ERROR":
+                        content_line += log_color.get("ERROR") + " |"
+                    elif data[index] == "OK":
+                        content_line += log_color.get("OK") + "   " + " |"
+                    else:
+                        content_line += CsvLogPrinter.print_format(value, data[index], "") + "|"
+            if early_return:
+                continue
+            else:
+                table_data.append(content_line)
+        table_data.append(division)
+
+        for table_line in table_data:
+            print(table_line)
 
 
 class YamlUtils(object):
@@ -209,6 +372,33 @@ class CommonUtils(object):
                 return False
         return True
 
+    @staticmethod
+    def encrypt_data(dict_data, flag, dumps_file=None):
+        if not dict_data.get("instance_key"):
+            keygen = importlib.import_module(Constants.KEYGEN_MODULE)
+            for k, v in dict_data.items():
+                if k.endswith(flag):
+                    dict_data["instance_key"] = keygen.generate_key().strip()
+                    dict_data[k] = binascii.b2a_hex(keygen.encrypt(v, dict_data["instance_key"]))
+            if dumps_file:
+                YamlUtils.dump_yaml_file(dict_data, dumps_file)
+
+    @staticmethod
+    def decrypt_data(dict_data, flag):
+        try:
+            if dict_data.get("instance_key"):
+                keygen = importlib.import_module(Constants.KEYGEN_MODULE)
+                for k, v in dict_data.items():
+                    if k.endswith(flag):
+                        dict_data[k] = keygen.decrypt(
+                            binascii.a2b_hex(dict_data[k].strip()), dict_data.get("instance_key")
+                        )
+            # return dict_data
+        # pylint: disable=broad-except
+        except Exception as err:
+            PRINT_LOGGER.error("password decrypt error: %s" % err)
+            raise err
+
 
 class ParamReplaceHandler(object):
 
@@ -249,10 +439,18 @@ class ParamReplaceHandler(object):
             replace_info = {}
         for param in params:
             key = "${" + str(param) + "}"
-            if key in value:
+            if key in str(value):
                 value = str(value).replace(key, str(params[param]))
                 replace_info.update({key: str(params[param])})
         return value
+
+    @staticmethod
+    def replace_param_param(replace_info=None):
+        replace_info = {} if replace_info is None else replace_info
+        for key, value in replace_info.items():
+            for params in re.findall(r'\${\S*}', str(value)):
+                param_name = re.sub(r'\$|{|}', '', params)
+                replace_info.update({key: replace_info.get(param_name)})
 
     @staticmethod
     def replace_host_param(value, params, host_ip, replace_info=None):
@@ -379,17 +577,18 @@ class HostParser(object):
             for _host in host_list:
                 if len(_host.keys()) == 1 and _host.get("name", None):
                     HostParser.add_group_info(self.group_ref_hosts[_host["name"]], group_name)
-                    _temp_group_hosts.append(self.group_ref_hosts[_host["name"]])
+                    _temp_group_hosts.extend(self.group_ref_hosts[_host["name"]])
                     continue
-                HostParser.add_group_info(_host, group_name)
+                HostParser.add_group_info([_host], group_name)
                 _temp_group_hosts.append(_host)
             self.hosts[group_name] = _temp_group_hosts
 
     @staticmethod
-    def add_group_info(host, group_name):
-        host.setdefault("group", [Constants.INTERNAL_GROUP_NAME])
-        if group_name not in host:
-            host["group"].append(group_name)
+    def add_group_info(host_list, group_name):
+        for host in host_list:
+            host.setdefault("group", [Constants.INTERNAL_GROUP_NAME])
+            if group_name not in host:
+                host["group"].append(group_name)
 
     def handle_ip_sections(self):
         internal_group_hosts = set()
@@ -453,11 +652,19 @@ class HostParser(object):
                     self.group_ref_hosts.update({group_ref: temp_group_hosts[_idx]})
 
     def replace_vars(self):
-        for group_name, info in self.vars.items():
-            update_host_list = self.hosts.get(group_name, [])
+        global_vars = self.vars.get(Constants.GLOBAL_VAR_KEY, {})
+        for group_name, update_host_list in self.hosts.items():
+            group_vars = self.vars.get(group_name, {})
+            global_vars.update(group_vars)
             for _update_host in update_host_list:
-                info.update(_update_host)
-                _update_host.update(info)
+                if "ip" in _update_host:
+                    # update host info, priority order from low to high: global_var-->group_var-->host_var
+                    # eg. if host_var and group_var are both defined, will use host_var
+                    global_vars.update(_update_host)
+                    _update_host.update(global_vars)
+                    # update by default value if not present
+                    _update_host.setdefault("user", Constants.GLOBAL_DEFAULT_USER)
+                    _update_host.setdefault("port", Constants.GLOBAL_DEFAULT_PORT)
 
     def replace_labels(self):
         for group_name, host_info_list in self.origin_yaml_data.items():
@@ -487,6 +694,7 @@ class HostParser(object):
                 if _key_list == ["name"]:
                     if name_value.rfind("[") > 0:
                         self.group_refs.append(name_value)
+                    self.hosts[group_name].append(copy.deepcopy(_host))
                     continue
                 # if find no "[", eg. MEETING_HOST it's a label
                 self.hosts[group_name].append(copy.deepcopy(_host))
@@ -496,31 +704,25 @@ class HostParser(object):
                     continue
 
     def encrypt(self):
-        keygen = importlib.import_module(Constants.KEYGEN_MODULE)
         for host_group in self.origin_yaml_data:
-            for host_item in self.origin_yaml_data[host_group]:
-                if "password" in host_item and "instance_key" not in host_item:
-                    instance_key = keygen.generate_key().strip()
-                    host_item["instance_key"] = instance_key
-                    _encrypt_txt = keygen.encrypt(str(host_item["password"]), instance_key)
-                    encrypt_txt = binascii.b2a_hex(_encrypt_txt)
-                    host_item["password"] = encrypt_txt.decode('utf-8')
-                    # host has ip or name(label)
-                    host_item_name = host_item.get("ip", host_item.get("name", ""))
-                    LOGGER.info("encrypt password " + host_item_name + ": ok")
+            host_items = self.origin_yaml_data[host_group]
+            if isinstance(host_items, dict):
+                host_items = [host_items]
+            for host_item in host_items:
+                CommonUtils.encrypt_data(host_item, "password")
+                # host has ip or name(label)
+                host_item_name = host_item.get("ip", host_item.get("name", ""))
+                LOGGER.info("encrypt password " + host_item_name + ": ok")
         YamlUtils.dump_yaml_file(self.origin_yaml_data, self.host_conf_path)
 
     def decrypt(self):
         try:
-            keygen = None
             for host_group in self.origin_yaml_data:
-                for host_item in self.origin_yaml_data[host_group]:
-                    if "password" in host_item and "instance_key" in host_item:
-                        if not keygen:
-                            keygen = importlib.import_module(Constants.KEYGEN_MODULE)
-                        encrypt_txt = binascii.a2b_hex(host_item["password"].strip())
-                        decrypt_txt = keygen.decrypt(encrypt_txt, host_item["instance_key"])
-                        host_item["password"] = decrypt_txt
+                host_items = self.origin_yaml_data[host_group]
+                if isinstance(host_items, dict):
+                    host_items = [host_items]
+                for host_item in host_items:
+                    CommonUtils.decrypt_data(host_item, "password")
         # pylint: disable=broad-except
         except Exception as err:
             LOGGER.exception(err)
@@ -598,6 +800,7 @@ class Task(object):
         self.name = task_dict.get("name", "")
         self.type = task_dict.get("type", "")
         self.cmd = task_dict.get("cmd", "")
+        self.desc = task_dict.get("desc", "")
         self.allow_failed = task_dict.get("allow_failed", False)
         try:
             self.time_out = task_dict.get("time_out", 0)
@@ -643,10 +846,10 @@ def call_proc(cmd_str, task_info, cmd_item, result_queue):
                     and not print_str.startswith("Permission denied") \
                     and not print_str.startswith("Connection to") \
                     and "password:" not in print_str:
-                # TASK_LOGGER.info(print_str)
+                TASK_LOGGER.info(print_str)
                 print_out_lines.append(print_str)
-                if print_log and print_result:
-                    PRINT_LOGGER.info(print_str)
+                # if print_log and print_result:
+                #     PRINT_LOGGER.info(print_str)
 
         sub_process.stdout.close()
         sub_process.wait()
@@ -661,14 +864,14 @@ def call_proc(cmd_str, task_info, cmd_item, result_queue):
                 PARAM_DATA[register].append(register_value)
 
         if print_log:
-            # stdout already print out lively, make print_out_lines empty to avoid printing those logs again.
-            print_out_lines = []
             param_item_info = cmd_item.get('param_item', [])
             key_list = cmd_item.get('key_list', [])
             param_item = ParamReplaceHandler.generate_param_item(key_list, param_item_info)
             LogUtils.execute_command_print_log(sub_process.returncode, host_location_name, print_out_lines,
-                                               print_result,
-                                               param_item=",".join(param_item))
+                                               print_result, param_item=",".join(param_item))
+            if _task_name not in Constants.CSV_LOG_IGNORE_TASKS:
+                LogUtils.execute_command_csv_log(sub_process.returncode, task_info, print_out_lines)
+
         if not sub_process.returncode == 0:
             TASK_LOGGER.info("task [%s] execute on host: %s %s"
                              % (_task_name, str(host_location_name), LogUtils.LOG_INFO_ERR))
@@ -679,6 +882,14 @@ def call_proc(cmd_str, task_info, cmd_item, result_queue):
         else:
             TASK_LOGGER.info("task [%s] execute on host: %s %s"
                              % (_task_name, str(host_location_name), LogUtils.LOG_INFO_OK))
+
+        result_status.append({
+            "job": task_info.get("job_name"),
+            "task": _task_name,
+            "code": exit_code,
+            "skip": True,
+        })
+        write_status()
         TASK_LOGGER.info("--------------------------------------------------")
 
         result_queue.put(exit_code)
@@ -723,21 +934,36 @@ class Executor(object):
                     # conditions not match, the exit_code will be 0
                     if unmatch_item_condition:
                         TASK_LOGGER.info("conditions not match, skipped on host: %s" % (str(host_location_name)))
+                        status_info = {
+                            "job": task_info.get("job_name"),
+                            "task": _task_name,
+                            "code": 0,
+                            "skip": True,
+                        }
+
                         PRINT_LOGGER.info("    %s: %s (\033[0;33mExpect:%s, Actually:%s\033[0m)"
                                           % (str(host_location_name), LogUtils.LOG_INFO_WARN_SKIPPED,
                                              item_condition, unmatch_item_condition))
                     else:
+                        status_info = {
+                            "job": task_info.get("job_name"),
+                            "task": _task_name,
+                            "code": 1,
+                            "skip": True,
+                        }
                         TASK_LOGGER.info("params error, skipped on host: %s" % (str(host_location_name)))
                         PRINT_LOGGER.info("    %s: %s (\033[0;33mitems not found: %s\033[0m)"
                                           % (str(host_location_name), LogUtils.LOG_INFO_ERR, with_items))
                         exit_code = 1
+                    result_status.append(status_info)
+                    write_status()
                     continue
                 cmd_str = cmd_item.get('cmd', None)
                 if not cmd_str:
                     LOGGER.warning(
                         "couldn't find any cmd for task [%s] on host %s" % (_task_name, str(host_location_name)))
                     continue
-                if host != Constants.LOCAL_HOST and host["password"]:
+                if host != Constants.LOCAL_HOST and "password" in host:
                     pwd_str = " -p '" + str(host["password"]) + "' "
                     cmd_str = cmd_str.replace(Constants.PASSWORD_PLACE_HOLDER, pwd_str)
                 if pool:
@@ -756,6 +982,7 @@ class Executor(object):
             if result_queue.get() == 1:
                 exit_code = 1
             result_count += 1
+
         return exit_code
 
 
@@ -837,7 +1064,6 @@ class CmdTask(Task):
                 # and we should use the key-value in param_item firstly
                 replace_param_cmd = ParamReplaceHandler.replace_param(cmd, param_item, replace_info_item)
                 replace_param_cmd = ParamReplaceHandler.replace_param(replace_param_cmd, param_data, replace_info_item)
-                PRINT_LOGGER.info("replace_info_item: %s" % replace_info_item)
                 if self.item_condition:
                     replace_item_condition = ParamReplaceHandler.replace_param(self.item_condition, param_item)
                     replace_item_condition = replace_item_condition.replace("${IP}", _ip)
@@ -853,7 +1079,7 @@ class CmdTask(Task):
                 else:
                     cmd_list.append({"param_item": replace_info_item, "cmd": replace_param_cmd, "key_list": key_list})
 
-    def run(self, hosts, param_data, print_log=False, job_items=None, job_node_parallel=False):
+    def run(self, hosts, param_data, job_name="", print_log=False, job_items=None, job_node_parallel=False):
         task_cmd = self.cmd
         if SCRIPT_PATH:
             task_cmd = "export PATH=$PATH:{0};{1}".format(SCRIPT_PATH, self.cmd)
@@ -874,11 +1100,12 @@ class CmdTask(Task):
                 replace_param_cmd = ParamReplaceHandler.replace_host_param(task_cmd, param_data,
                                                                            host["ip"], replace_info)
                 replace_param_cmd = ParamReplaceHandler.replace_key_words(replace_param_cmd, host, replace_info)
+                replace_param_cmd = ParamReplaceHandler.replace_param(replace_param_cmd, param_data, replace_info)
                 # single quote will make the cmd execute with wrong, replace them by '\''
                 replace_param_cmd = ParamReplaceHandler.replace_single_quote(replace_param_cmd)
                 cmd = Constants.CONTROLLER_SEND_CMD_TOOLS + " -i " + host["ip"] + " -P " + str(host["port"]) + " -u " \
                       + host["user"] + " -c '" + replace_param_cmd + "'"
-                if host["password"]:
+                if "password" in host:
                     cmd = cmd + Constants.PASSWORD_PLACE_HOLDER
                 cmd = cmd + " -t " + str(self.time_out)
                 # if find nohup XXX, will execute cmd in background
@@ -889,13 +1116,12 @@ class CmdTask(Task):
             if self.with_items:
                 self.parse_with_items(host, cmd, cmd_list, job_items, param_data, replace_info, sorted_replace_list)
             else:
-                cmd = ParamReplaceHandler.replace_param(cmd, param_data, replace_info)
                 self.parse_task_single(host, cmd, cmd_list, job_items, param_data, replace_info, sorted_replace_list)
             task_info_list.append(
                 {"host_location_name": host_location_name, "cmd_list": cmd_list, "task_name": self.name,
                  "print_log": print_log, "print_result": self.print_result, "register": self.register,
                  "item_condition": self.item_condition, "with_items": self.with_items, "host": host,
-                 "is_check_ready": self.is_check_ready})
+                 "is_check_ready": self.is_check_ready, "job_name": job_name, "desc": self.desc})
             # every host do the task parallel
             if job_node_parallel and task_info_list:
                 parallel_exit_code = Executor.execute_parallel(copy.deepcopy(task_info_list), job_node_parallel)
@@ -915,10 +1141,10 @@ class ScriptTask(Task):
         super(ScriptTask, self).__init__(task_dict)
         self.local_script = task_dict.get("local_script", "")
 
-    def run(self, hosts, param_data):
+    def run(self, hosts, param_data, job_name):
         # send local script to remote tmp dir
         _temp_task = {"src": self.local_script, "dest": Constants.TMP_SCRIPT_DIR, "time_out": self.time_out,
-                      "name": self.name}
+                      "name": self.name, "job_name": job_name}
         file_task = FileTask(_temp_task)
         file_task.run(hosts, True)
         # execute script cmd
@@ -926,7 +1152,7 @@ class ScriptTask(Task):
         _temp_task["cmd"] = self.cmd.replace(script_name, Constants.TMP_SCRIPT_DIR + "/" + script_name)
         _temp_task["print_result"] = False
         cmd_task = CmdTask(_temp_task)
-        cmd_task.run(hosts, param_data, True)
+        cmd_task.run(hosts, param_data, job_name=job_name, print_log=True)
         return 0
 
 
@@ -936,6 +1162,7 @@ class FileTask(Task):
         self.src = task_dict.get("src", "")
         self.dest = task_dict.get("dest", "")
         self.mode = task_dict.get("mode", "out")
+        self.job_name = task_dict.get("job_name")
         self.scp_out_mode = True if self.mode == "out" else False
 
     def run(self, hosts, print_log=False):
@@ -953,7 +1180,7 @@ class FileTask(Task):
                       + " -u " + host["user"] \
                       + " -s " + src_replace \
                       + " -d " + dest_replace
-                if host["password"]:
+                if "password" in host:
                     cmd = cmd + Constants.PASSWORD_PLACE_HOLDER
                 cmd = cmd + " -t " + str(self.time_out)
                 if not self.scp_out_mode:
@@ -961,7 +1188,7 @@ class FileTask(Task):
                 host_location_name = host["ip"]
             LOGGER.debug("execute cmd: " + cmd)
             try:
-                if host != Constants.LOCAL_HOST and host["password"]:
+                if host != Constants.LOCAL_HOST and "password" in host:
                     pwd_str = " -p '" + str(host["password"]) + "' "
                     cmd = cmd.replace(Constants.PASSWORD_PLACE_HOLDER, pwd_str)
                 sub_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -991,7 +1218,16 @@ class FileTask(Task):
             # pylint: disable=broad-except
             except Exception as err:
                 LOGGER.exception(err)
-                return 1
+                exit_code = 1
+                break
+        status_info = {
+            "job": self.job_name,
+            "task": self.name,
+            "code": exit_code,
+            "skip": False,
+        }
+        result_status.append(status_info)
+        write_status()
         return exit_code
 
 
@@ -1163,6 +1399,8 @@ def parse_args():
     parser.add_argument('-gf', dest='recovery_job_file', type=str, help='job file name for get recovery info operation')
     parser.add_argument('-g', dest='global_param', action=ParseArgs,
                         help='k=v optional, global params. eg. LOG_JOB_PATH="/data/test.log"')
+    parser.add_argument('-table', dest='display_table', type=CommonUtils.str2bool, default=False,
+                        help='y/n, Whether to display an error summary, default is n')
     args = parser.parse_args()
     special_args_handle(args)
     return args
@@ -1205,8 +1443,17 @@ def check_modify_host(yml_hosts, modify_host):
 def check_host_ready(hosts, time_out=30, print_result=True):
     PRINT_LOGGER.info("  task: Check host ready")
     check_sshd_conn_code = execute_command(hosts, "ls >/dev/null", time_out, True,
-                                           print_result, task_name="Check host ready", is_check_ready=True)
+                                           print_result, task_name=Constants.TASK_NAME_CHECK_HOST_READY,
+                                           is_check_ready=True)
     ret_code = check_sshd_conn_code
+    status_info = {
+        "job": "Check host ready",
+        "task": "Check host ready",
+        "code": ret_code,
+        "skip": False,
+    }
+    result_status.append(status_info)
+    write_status()
     if ret_code != 0:
         PRINT_LOGGER.info("    Check host ready error.")
     else:
@@ -1288,13 +1535,14 @@ def send_setup_tools_file(hosts, time_out=120):
     # send setup_tools_zip_file_name to SETUP_TOOLS_ROOT_PATH
     LOGGER.info("send setup tools...")
 
-    execute_file(hosts, tmp_zip_file, Constants.TMP_SCRIPT_DIR,
+    execute_file(hosts, tmp_zip_file, Constants.TMP_SCRIPT_DIR, job_name="job_name",
                  time_out=time_out, task_name="send_setup-tools_file")
     # unzip
     # execute script cmd
     LOGGER.info("unzip remote setup tool zip file...")
-    cmd = "mkdir -p %s;tar zxPf %s/%s -C %s" % (Constants.SETUP_TOOLS_DIR, Constants.TMP_SCRIPT_DIR,
-                                                setup_tools_zip_file_name, Constants.SETUP_TOOLS_DIR)
+    cmd = "rm -rf %s;mkdir -p %s;tar zxPf %s/%s -C %s" % (Constants.SETUP_TOOLS_DIR, Constants.SETUP_TOOLS_DIR,
+                                                          Constants.TMP_SCRIPT_DIR, setup_tools_zip_file_name,
+                                                          Constants.SETUP_TOOLS_DIR)
     execute_command(hosts, cmd, time_out=time_out, task_name="unzip_setup-tools_file")
     # remove local tmp zip package
     os.remove(tmp_zip_file)
@@ -1305,11 +1553,12 @@ def execute_command(hosts, cmd, time_out, print_log=False, print_result=False, t
     _cmd_task_dict = {"cmd": cmd, "time_out": time_out, "name": task_name,
                       "is_check_ready": is_check_ready, "print_result": print_result}
     _cmd_task = CmdTask(_cmd_task_dict)
-    return _cmd_task.run(hosts, PARAM_DATA, print_log)
+    return _cmd_task.run(hosts, PARAM_DATA, print_log=print_log)
 
 
-def execute_file(hosts, src, dest, time_out, out_mode="out", print_log=False, task_name=""):
-    _file_task_dict = {"src": src, "time_out": time_out, "name": task_name, "dest": dest, "out_mode": out_mode}
+def execute_file(hosts, src, dest, time_out, job_name="", out_mode="out", print_log=False, task_name=""):
+    _file_task_dict = {"src": src, "time_out": time_out, "name": task_name, "dest": dest,
+                       "out_mode": out_mode, "job_name": job_name}
     _file_task = FileTask(_file_task_dict)
     return _file_task.run(hosts, print_log)
 
@@ -1347,7 +1596,7 @@ def execute_jobs(send_host_ip_list):
                         % job_host if job_host else job.host)
             job_return_code = 1
         else:
-            job_name = ParamReplaceHandler.replace_param(job_name, PARAM_DATA)
+            job_name = str(ParamReplaceHandler.replace_param(job_name, PARAM_DATA))
             LOGGER.info("execute job: " + job_name)
             PRINT_LOGGER.info("job: " + job_name)
             LOGGER.info("job will execute on host: " + str(HostInfoHandler.get_host_ips(analyse_hosts)))
@@ -1393,12 +1642,13 @@ def execute_job(analyse_hosts, job, job_name):
         for task in job.tasks:
             if not task.get("execute"):
                 exec_task_num += 1
-                task_name = ParamReplaceHandler.replace_param(task.get("name", ""), PARAM_DATA)
+                task_name = str(ParamReplaceHandler.replace_param(task.get("name", ""), PARAM_DATA))
+                task["name"] = task_name
                 init_task_own_log_file(job.param, task_name)
                 PRINT_LOGGER.info("  task: " + task_name)
                 TASK_LOGGER.info("  task: " + task_name)
                 LOGGER.info("execute task [%s] in job [%s]" % (task_name, job_name))
-                return_code = execute_task(analyse_hosts, task, PARAM_DATA, job.node_parallel, job_param_item)
+                return_code = execute_task(analyse_hosts, task, PARAM_DATA, job_name, job.node_parallel, job_param_item)
                 if return_code != 0:
                     if "allow_failed" in task and task["allow_failed"]:
                         allow_failed_num += 1
@@ -1415,7 +1665,7 @@ def execute_job(analyse_hosts, job, job_name):
     return allow_failed_num, job_return_code, summary_log
 
 
-def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_param_item=None):
+def execute_task(analyse_hosts, task, param_data, job_name, job_node_parallel=False, job_param_item=None):
     if "task_own_log_file" in task:
         task_own_log_file = os.path.join(Constants.TMP_SCRIPT_DIR, "task-%s.log" % (task["task_own_log_file"]))
         LogUtils.setup_file_logger(TASK_LOGGER, task_own_log_file)
@@ -1427,7 +1677,7 @@ def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_p
 
     if task["type"] == "command":
         cmd_task = CmdTask(task)
-        return_code = cmd_task.run(analyse_hosts, param_data, True, job_items=job_param_item,
+        return_code = cmd_task.run(analyse_hosts, param_data, job_name, print_log=True, job_items=job_param_item,
                                    job_node_parallel=job_node_parallel)
     elif task["type"] == "file":
         src = ParamReplaceHandler.replace_param(task["src"], param_data)
@@ -1435,13 +1685,14 @@ def execute_task(analyse_hosts, task, param_data, job_node_parallel=False, job_p
         LOGGER.info("execute file transfer, src is " + src + " , dest is " + dest)
         task["src"] = src
         task["dest"] = dest
+        task["job_name"] = job_name
         file_task = FileTask(task)
         return_code = file_task.run(analyse_hosts, True)
     elif task["type"] == "script":
         local_script = ParamReplaceHandler.replace_param(task["local_script"], param_data)
         task["local_script"] = local_script
         script_task = ScriptTask(task)
-        return_code = script_task.run(analyse_hosts, param_data)
+        return_code = script_task.run(analyse_hosts, param_data, job_name)
     else:
         LOGGER.error("task type " + task["type"] + " is not supported.")
         return_code = 1
@@ -1485,13 +1736,13 @@ def do_schedule():
             PRINT_LOGGER.info("destination path can not be null")
             sys.exit(1)
         scheduler_return_code = execute_file(analyse_hosts, SCHEDULER_ARGS.source_file_path, SCHEDULER_ARGS.dest_path,
-                                             SCHEDULER_ARGS.time_out, SCHEDULER_ARGS.scp_out_mode, True,
+                                             SCHEDULER_ARGS.time_out, "job_name", SCHEDULER_ARGS.scp_out_mode, True,
                                              task_name=Constants.TASK_NAME_SEND_SOURCE_FILE)
     elif SCHEDULER_ARGS.script_local_path:
         script_local_path_all = ParamReplaceHandler.replace_param(SCHEDULER_ARGS.script_local_path, PARAM_DATA)
         script_local_path = SCHEDULER_ARGS.script_local_path.split()[0]
         # send local script to remote tmp dir
-        execute_file(analyse_hosts, script_local_path, Constants.TMP_SCRIPT_DIR, SCHEDULER_ARGS.time_out,
+        execute_file(analyse_hosts, script_local_path, Constants.TMP_SCRIPT_DIR, SCHEDULER_ARGS.time_out, "job_name",
                      task_name=Constants.TASK_NAME_SEND_SOURCE_FILE)
         # execute script cmd
         script_name = script_local_path_all.split("/")[-1]
@@ -1520,6 +1771,14 @@ def do_recovery(job_md5, job_name, job_parser, recovery_data, recovery_id):
                     LOGGER.info(job_name + " job break because execute status is true.")
                     PRINT_LOGGER.info("    %s skip job because job execute status is ok"
                                       % LogUtils.LOG_INFO_OK)
+                    status_info = {
+                        "job": job_name,
+                        "task": "",
+                        "code": 0,
+                        "skip": True,
+                    }
+                    result_status.append(status_info)
+                    write_status()
                     return True
             else:
                 PRINT_LOGGER.info("%s job file is modify, please check job file" % LogUtils.LOG_INFO_ERR)
@@ -1576,29 +1835,17 @@ UNREADY_HOSTS = []
 
 
 def init_logger():
-    log_scheduler_file = Constants.LOG_SCHEDULER_FILE
-    log_job_file = Constants.LOG_JOB_FILE
-    if "LOG_SCHEDULER_PATH" in PARAM_DATA:
-        if not CommonUtils.make_dirs(PARAM_DATA["LOG_SCHEDULER_PATH"]):
-            PRINT_LOGGER.info("Path for logfile [%s] not exists." % PARAM_DATA["LOG_SCHEDULER_PATH"])
-            sys.exit(1)
-        else:
-            log_scheduler_file = PARAM_DATA["LOG_SCHEDULER_PATH"]
+    log_scheduler_file = LogUtils.get_log_file_name("LOG_SCHEDULER_PATH") or Constants.LOG_SCHEDULER_FILE
+    log_job_file = LogUtils.get_log_file_name("LOG_JOB_PATH") or Constants.LOG_JOB_FILE
+    log_csv_file = LogUtils.get_log_file_name("LOG_CSV_PATH") or Constants.LOG_CSV_FILE
     # init scheduler log
-    scheduler_logger = logging.getLogger('root')
-    LogUtils.setup_file_logger(scheduler_logger, log_scheduler_file,
-                               fmt="%(asctime)s - %(levelname)s: %(message)s")
-    if "LOG_JOB_PATH" in PARAM_DATA:
-        if not CommonUtils.make_dirs(PARAM_DATA["LOG_JOB_PATH"]):
-            PRINT_LOGGER.info("Path for logfile [%s] not exists." % PARAM_DATA["LOG_JOB_PATH"])
-            sys.exit(1)
-        else:
-            log_job_file = PARAM_DATA["LOG_JOB_PATH"]
+    LogUtils.setup_file_logger(LOGGER, log_scheduler_file, fmt="%(asctime)s - %(levelname)s: %(message)s")
     # init job&task log
-    task_logger = logging.getLogger('task')
-    LogUtils.setup_file_logger(task_logger, log_job_file)
-
-    return log_scheduler_file, log_job_file, task_logger, scheduler_logger
+    LogUtils.setup_file_logger(TASK_LOGGER, log_job_file)
+    # init CSV log
+    LogUtils.setup_file_logger(CSV_LOGGER, log_csv_file, fmt="%(message)s")
+    # add csv log header
+    CSV_LOGGER.info("TASK_NAME,HOST,STATUS,LOGS,DESC")
 
 
 def do_query_host():
@@ -1640,11 +1887,17 @@ def do_modify_sshd_port():
         sys.exit(0)
 
 
+def write_status():
+    with open("/tmp/run_status.json", 'w') as f1:
+        f1.write(json.dumps(result_status) + "\n")
+
+
 SCRIPT_PATH = ""
 PARAM_DATA = {}
 PRINT_LOGGER = logging.getLogger('print')
 TASK_LOGGER = logging.getLogger('task')
 LOGGER = logging.getLogger('root')
+CSV_LOGGER = logging.getLogger('csv')
 
 
 if __name__ == '__main__':
@@ -1661,12 +1914,22 @@ if __name__ == '__main__':
     if SCHEDULER_ARGS.get_recovery_data:
         RecoveryInfoHandler.do_get_recovery_info(SCHEDULER_ARGS.recovery_job_file)
     # load param.yml
-    if SCHEDULER_ARGS.param_conf:
-        PARAM_DATA.update(YamlUtils.load_yaml_file(SCHEDULER_ARGS.param_conf))
+    param_file_list = SCHEDULER_ARGS.param_conf.split(",") if SCHEDULER_ARGS.param_conf else []
+    for parm_file in param_file_list:
+        PARAM_DATA.update(YamlUtils.load_yaml_file(parm_file))
+
+    if SCHEDULER_ARGS.encrypt:
+        for parm_file in param_file_list:
+            PARAM_DATA.update(YamlUtils.load_yaml_file(parm_file))
+            CommonUtils.encrypt_data(PARAM_DATA, "_PWD", SCHEDULER_ARGS.param_conf)
+            # PARAM_DATA.update(decrypt_data(PARAM_DATA, "_PWD"))
+            CommonUtils.decrypt_data(PARAM_DATA, "_PWD")
+    ParamReplaceHandler.replace_param_param(PARAM_DATA)
     # merge yaml param and global param
     PARAM_DATA.update(GLOBAL_PARAM)
-    # init scheduler and task logger
-    LOG_SCHEDULER_FILE, LOG_JOB_FILE, TASK_LOGGER, LOGGER = init_logger()
+
+    # init scheduler and task logger and csv logger
+    init_logger()
 
     if SCHEDULER_ARGS.script_path:
         SCRIPT_PATH = ParamReplaceHandler.replace_param(SCHEDULER_ARGS.script_path, PARAM_DATA)
@@ -1681,7 +1944,8 @@ if __name__ == '__main__':
             HOST_PARSER.encrypt()
         HOST_PARSER.decrypt()
         HOST_PARSER.parse()
-        ALL_HOST = HOST_PARSER.all_hosts
+        # if host.yml if empty, make ALL_HOST as ["local"]
+        ALL_HOST = HOST_PARSER.all_hosts if HOST_PARSER.all_hosts else [Constants.LOCAL_HOST]
         ALL_GROUP_HOST = HOST_PARSER.all_group_hosts
         if "HOST" not in PARAM_DATA:
             PARAM_DATA.update({"HOST": ALL_HOST})
@@ -1689,15 +1953,20 @@ if __name__ == '__main__':
     do_query_host()
     # modify sshd port
     do_modify_sshd_port()
-    # check host ready and record the UNREADY_HOSTS
-    if check_host_ready(ALL_HOST) != 0 and not SCHEDULER_ARGS.ignore_check_ready_failed:
-        sys.exit(1)
+    if SCHEDULER_ARGS.command is None:
+        # check host ready and record the UNREADY_HOSTS
+        if check_host_ready(ALL_HOST) != 0 and not SCHEDULER_ARGS.ignore_check_ready_failed:
+            sys.exit(1)
     if UNREADY_HOSTS:
         PRINT_LOGGER.info("unready hosts %s, will be skipped in following tasks." % UNREADY_HOSTS)
 
     # send setup-tools file
     if SCHEDULER_ARGS.send_file:
-        RETURN_CODE = send_setup_tools_file(ALL_HOST, SCHEDULER_ARGS.time_out)
+        # add local to ALL_HOST
+        ALL_HOST_SEND = copy.deepcopy(ALL_HOST)
+        if Constants.LOCAL_HOST not in ALL_HOST_SEND:
+            ALL_HOST_SEND.append(Constants.LOCAL_HOST)
+        RETURN_CODE = send_setup_tools_file(ALL_HOST_SEND, SCHEDULER_ARGS.time_out)
         if RETURN_CODE != 0:
             sys.exit(RETURN_CODE)
 
@@ -1706,4 +1975,11 @@ if __name__ == '__main__':
     PRINT_LOGGER.info("-----------------------------------------------")
     SCHEDULER_RETURN_CODE = do_schedule()
     PRINT_LOGGER.info("-----------------------------------------------")
+    if SCHEDULER_ARGS.display_table:
+        if LogUtils.get_log_file_name("LOG_CSV_PATH"):
+            CsvLogPrinter.csv_to_table(LogUtils.get_log_file_name("LOG_CSV_PATH"))
+            print("Download File View Details: %s" % LogUtils.get_log_file_name("LOG_CSV_PATH"))
+        else:
+            CsvLogPrinter.csv_to_table(Constants.LOG_CSV_FILE)
+            print("Download File View Details: %s" % Constants.LOG_CSV_FILE)
     sys.exit(SCHEDULER_RETURN_CODE)
