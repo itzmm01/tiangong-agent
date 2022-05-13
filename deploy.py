@@ -229,6 +229,7 @@ def run_job(status, jobs, job_status):
     status.save_pid(jobs.get("name"), os.getpid())
     for job in jobs.get('jobs'):
         job_host = job["job"].get('host')
+        job_name = job["job"].get('name')
         if check_ip(job_host):
             hosts = []
             for group, host_list in jobs.get('host').items():
@@ -262,7 +263,7 @@ def run_job(status, jobs, job_status):
                 if "print_result" not in task:
                     task["print_result"] = True
 
-                res = scheduler.execute_task(hosts, task, jobs.get('params'))
+                res = scheduler.execute_task(hosts, task, jobs.get('params'), job_name)
 
                 if res != 0:
                     status.set_status(jobs.get("name"), task_name, 502)
