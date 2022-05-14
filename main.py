@@ -64,7 +64,7 @@ def init_job_status(job: JobsName):
 
 @app.on_event("startup")
 def startup_event():
-    socket_client.startup()
+    socket_client.append_startup()
     logger.info("socket client startup....")
     if os.path.exists("./status_file") is not True:
         os.mkdir("./status_file")

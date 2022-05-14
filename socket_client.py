@@ -1,3 +1,5 @@
+import time
+
 import socketio
 import deploy
 from deploy import Jobs, JobLog, JobsName
@@ -8,14 +10,19 @@ from multiprocessing import Process
 
 http_session = requests.Session()
 
-http_session.mount('https://', HTTPAdapter(max_retries=1000))
-http_session.mount('http://', HTTPAdapter(max_retries=1000))
+http_session.mount('https://', HTTPAdapter(max_retries=2))
+http_session.mount('http://', HTTPAdapter(max_retries=2))
 
-sio = socketio.Client(reconnection_delay=5000,
-                      reconnection_delay_max=10000,
+sio = socketio.Client(reconnection_delay=5,
+                      reconnection_delay_max=20,
                       reconnection_attempts=0,
                       reconnection=True,
                       http_session=http_session)
+
+MAX_DELAY_IN_SECONDS = 30
+DELAY_IN_SECONDS = 5
+MAX_RETRIES = 100000
+retry_times = 0
 
 socket_host = ''
 socket_path = ''
@@ -32,8 +39,15 @@ def on_connect():
     pass
 
 
-def on_disconnect(reason):
-    logger.info("disconnect: ", reason)
+@sio.on('disconnect')
+def on_disconnect():
+    logger.info("ws disconnect!")
+    pass
+
+
+@sio.on('error')
+def on_error(reason):
+    logger.warning("ws on error: {}", reason)
     pass
 
 
@@ -139,7 +153,7 @@ def startup():
     try:
         file = open('./server.info')
 
-        global socket_host, socket_path, socket_token
+        global socket_host, socket_path, socket_token, MAX_RETRIES, MAX_DELAY_IN_SECONDS, DELAY_IN_SECONDS, retry_times
         line = file.readline()
 
         while line:
@@ -155,17 +169,36 @@ def startup():
             line = file.readline()
 
         file.close()
-        p = Process(target=connect_srv, args=(socket_host, socket_token, socket_path,))
-        # p.daemon = True
-        p.start()
 
-        # sio.start_background_task(target=connect_srv, host=socket_host, code=socket_token, path=socket_path)
-        logger.info("web socket start end")
+        while True:
+            try:
+                if retry_times > 0:
+                    delay = DELAY_IN_SECONDS + retry_times
+                    if delay > MAX_DELAY_IN_SECONDS:
+                        delay = MAX_DELAY_IN_SECONDS
+                    logger.info("reconnect times: {}, delay : {}", retry_times, delay)
+                    time.sleep(delay)
+                connect_srv(host=socket_host, code=socket_token, path=socket_path)
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                logger.error("connect_srv fail!  {}", e)
+                if retry_times + 1 > MAX_RETRIES:
+                    break
+                retry_times = retry_times + 1
+
+        logger.info("ws finish !, total retry times: {}", retry_times)
 
     except Exception as e:
-        logger.error("load file err", e)
+        logger.error("ws startup fail: {}", e)
 
     pass
+
+
+def append_startup():
+    p = Process(target=startup)
+    # p.daemon = True
+    p.start()
 
 
 if __name__ == '__main__':
